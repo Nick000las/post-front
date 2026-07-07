@@ -1,9 +1,12 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { toast } from 'sonner'
 import MediaDropzone from './components/MediaDropzone'
 import CaptionField from './components/CaptionField'
 import PlatformSelector from './components/PlatformSelector'
 import PublishButton from './components/PublishButton'
+import AccountDrawer from './components/AccountDrawer'
+import { useAccounts } from './hooks/useAccounts'
+import { PLATFORMS } from './lib/platforms'
 
 const VIDEO_SIZE_LIMIT = 300 * 1024 * 1024 // 300MB em bytes
 const TIMEOUT_IMAGE_MS = 30_000            // 30s
@@ -16,8 +19,39 @@ function App() {
   const [selectedPlatforms, setSelectedPlatforms] = useState(new Set(['instagram']))
   const [isPublishing, setIsPublishing] = useState(false)
 
+  // Conta escolhida por plataforma, ex: { instagram: '17841413894963850' }
+  const [selectedAccounts, setSelectedAccounts] = useState({})
+  const [activeDrawerPlatform, setActiveDrawerPlatform] = useState(null)
+  const { accounts, status: accountsStatus, error: accountsError, ensureLoaded: ensureAccountsLoaded } = useAccounts()
+
   const isVideo = file ? file.type.startsWith('video/') : false
-  const canPublish = file !== null && selectedPlatforms.size > 0 && !isPublishing
+
+  const hasAccountForEverySelectedPlatform = useMemo(
+    () => Array.from(selectedPlatforms).every((platformId) => Boolean(selectedAccounts[platformId])),
+    [selectedPlatforms, selectedAccounts]
+  )
+
+  const canPublish = file !== null
+    && selectedPlatforms.size > 0
+    && hasAccountForEverySelectedPlatform
+    && !isPublishing
+
+  const accountLabels = useMemo(() => {
+    const labels = {}
+    for (const platformId of selectedPlatforms) {
+      const accountId = selectedAccounts[platformId]
+      if (!accountId) continue
+      const account = accounts.find((acc) => acc.id === accountId)
+      if (account) labels[platformId] = account.nome
+    }
+    return labels
+  }, [selectedPlatforms, selectedAccounts, accounts])
+
+  const activeDrawerPlatformMeta = PLATFORMS.find((p) => p.id === activeDrawerPlatform)
+  const activeDrawerAccounts = useMemo(
+    () => accounts.filter((acc) => acc.plataforma === activeDrawerPlatform),
+    [accounts, activeDrawerPlatform]
+  )
 
   const handleFileAccepted = useCallback((newFile, url) => {
     if (newFile.type.startsWith('video/') && newFile.size > VIDEO_SIZE_LIMIT) {
@@ -37,13 +71,44 @@ function App() {
   }, [previewUrl])
 
   const handlePlatformToggle = useCallback((id) => {
+    const wasChecked = selectedPlatforms.has(id)
+
     setSelectedPlatforms(prev => {
       const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
+      if (wasChecked) next.delete(id)
       else next.add(id)
       return next
     })
+
+    if (wasChecked) {
+      // Desmarcou: fecha a gaveta (se estava aberta para essa plataforma) e limpa a conta escolhida
+      setSelectedAccounts(prev => {
+        if (!(id in prev)) return prev
+        const next = { ...prev }
+        delete next[id]
+        return next
+      })
+      setActiveDrawerPlatform(current => (current === id ? null : current))
+    } else {
+      // Marcou: abre a gaveta de contas dessa plataforma (busca as contas de forma lazy)
+      ensureAccountsLoaded()
+      setActiveDrawerPlatform(id)
+    }
+  }, [selectedPlatforms, ensureAccountsLoaded])
+
+  const handleOpenAccountDrawer = useCallback((id) => {
+    ensureAccountsLoaded()
+    setActiveDrawerPlatform(id)
+  }, [ensureAccountsLoaded])
+
+  const handleDrawerOpenChange = useCallback((open) => {
+    if (!open) setActiveDrawerPlatform(null)
   }, [])
+
+  const handleSelectAccount = useCallback((accountId) => {
+    if (!activeDrawerPlatform) return
+    setSelectedAccounts(prev => ({ ...prev, [activeDrawerPlatform]: accountId }))
+  }, [activeDrawerPlatform])
 
   const handlePublish = async () => {
     if (!file || selectedPlatforms.size === 0) return
@@ -116,6 +181,8 @@ function App() {
             <PlatformSelector
               selectedPlatforms={selectedPlatforms}
               onToggle={handlePlatformToggle}
+              onOpenDrawer={handleOpenAccountDrawer}
+              accountLabels={accountLabels}
             />
             <PublishButton
               canPublish={canPublish}
@@ -126,6 +193,18 @@ function App() {
           </div>
         </div>
       </div>
+
+      <AccountDrawer
+        open={activeDrawerPlatform !== null}
+        onOpenChange={handleDrawerOpenChange}
+        platformName={activeDrawerPlatformMeta?.name ?? ''}
+        accounts={activeDrawerAccounts}
+        status={accountsStatus}
+        error={accountsError}
+        selectedAccountId={activeDrawerPlatform ? selectedAccounts[activeDrawerPlatform] : undefined}
+        onSelectAccount={handleSelectAccount}
+        onRetry={ensureAccountsLoaded}
+      />
     </div>
   )
 }
