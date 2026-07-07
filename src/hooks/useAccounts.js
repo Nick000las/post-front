@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import { getAccounts } from '@/api/accounts'
 
 export function useAccounts() {
   const [accounts, setAccounts] = useState([])
@@ -13,18 +14,10 @@ export function useAccounts() {
     setStatus('loading')
     setError(null)
 
-    fetch('/contas')
-      .then(async (res) => {
-        if (!res.ok) {
-          const err = await res.json().catch(() => ({}))
-          throw new Error(err.error ?? `Erro HTTP ${res.status}`)
-        }
-        return res.json()
-      })
-      .then((data) => {
+    getAccounts()
+      .then((list) => {
         statusRef.current = 'success'
-        const list = Array.isArray(data) ? data : data?.contas
-        setAccounts(Array.isArray(list) ? list : [])
+        setAccounts(list)
         setStatus('success')
       })
       .catch((err) => {
