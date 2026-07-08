@@ -22,6 +22,32 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
+      '/login': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        // '/login' também é uma rota de página (react-router). Navegação de
+        // browser (reload, digitar a URL) manda Accept: text/html — nesse
+        // caso não proxiamos, deixando o Vite servir o index.html da SPA.
+        bypass(req) {
+          if (req.headers.accept?.includes('text/html')) return '/index.html'
+        },
+      },
+      '/register': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        // Mesmo motivo do '/login' acima — '/register' também é rota de página.
+        bypass(req) {
+          if (req.headers.accept?.includes('text/html')) return '/index.html'
+        },
+      },
+      '/logout': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/me': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
     },
   },
 })
