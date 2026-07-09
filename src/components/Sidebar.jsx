@@ -1,0 +1,54 @@
+import { NavLink } from 'react-router-dom'
+import { LogOut, Send, Users } from 'lucide-react'
+import { useAuth } from '@/contexts/AuthContext'
+import { cn } from '@/lib/utils'
+
+const NAV_ITEMS = [
+  { to: '/', label: 'Publicar Post', icon: Send, end: true },
+  { to: '/gerenciar-contas', label: 'Contas', icon: Users, end: false },
+]
+
+function Sidebar() {
+  const { user, logout } = useAuth()
+
+  return (
+    <aside className="w-64 shrink-0 border-r bg-card flex flex-col h-screen sticky top-0">
+      <div className="px-4 py-5 border-b">
+        <h2 className="text-lg font-semibold text-foreground">Auto Post</h2>
+      </div>
+
+      <nav className="flex-1 flex flex-col gap-1 p-3">
+        {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                isActive ? 'bg-primary text-primary-foreground' : 'text-foreground hover:bg-muted'
+              )
+            }
+          >
+            <Icon className="h-4 w-4 shrink-0" />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+
+      <div className="border-t p-3 flex flex-col gap-2">
+        {user && <p className="px-3 text-sm text-muted-foreground truncate">{user.name}</p>}
+        <button
+          type="button"
+          onClick={logout}
+          className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+        >
+          <LogOut className="h-4 w-4 shrink-0" />
+          Sair
+        </button>
+      </div>
+    </aside>
+  )
+}
+
+export default Sidebar

@@ -66,7 +66,7 @@ function AccountDrawer({
                   className="flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 hover:bg-muted"
                 >
                   <RadioGroupItem value={account.id} id={`account-${account.id}`} />
-                  <span className="text-sm font-medium text-foreground">{account.nome}</span>
+                  <span className="text-sm font-medium text-foreground">{account.name}</span>
                 </label>
               ))}
             </RadioGroup>

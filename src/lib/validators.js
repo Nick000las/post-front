@@ -23,3 +23,11 @@ export function validateRegisterForm({ username, email, password, confirmPasswor
   if (password !== confirmPassword) return 'As senhas não coincidem.'
   return null
 }
+
+export function validateAccountForm({ nome, plataforma, instagramId, accessToken }, { isEdit = false } = {}) {
+  if (!nome.trim()) return 'Informe o nome da conta.'
+  if (!plataforma) return 'Selecione uma plataforma.'
+  if (!isEdit && !instagramId.trim()) return 'Informe o Instagram ID.'
+  if (!isEdit && !accessToken.trim()) return 'Informe o token de acesso.'
+  return null
+}

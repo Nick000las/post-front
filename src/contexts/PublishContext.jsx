@@ -37,14 +37,14 @@ export function PublishProvider({ children }) {
       const accountId = selectedAccounts[platformId]
       if (!accountId) continue
       const account = accounts.find((acc) => acc.id === accountId)
-      if (account) labels[platformId] = account.nome
+      if (account) labels[platformId] = account.name
     }
     return labels
   }, [selectedPlatforms, selectedAccounts, accounts])
 
   const activeDrawerPlatformMeta = PLATFORMS.find((p) => p.id === activeDrawerPlatform)
   const activeDrawerAccounts = useMemo(
-    () => accounts.filter((acc) => acc.plataforma === activeDrawerPlatform),
+    () => accounts.filter((acc) => acc.platform === activeDrawerPlatform),
     [accounts, activeDrawerPlatform]
   )
 
