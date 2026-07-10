@@ -27,7 +27,7 @@ function App() {
     handlePlatformToggle,
     handleOpenAccountDrawer,
     handleDrawerOpenChange,
-    handleSelectAccount,
+    handleToggleAccount,
     handlePublish,
     ensureAccountsLoaded,
   } = usePublishContext()
@@ -79,8 +79,8 @@ function App() {
         accounts={activeDrawerAccounts}
         status={accountsStatus}
         error={accountsError}
-        selectedAccountId={activeDrawerPlatform ? selectedAccounts[activeDrawerPlatform] : undefined}
-        onSelectAccount={handleSelectAccount}
+        selectedAccountIds={activeDrawerPlatform ? (selectedAccounts[activeDrawerPlatform] ?? []) : []}
+        onToggleAccount={handleToggleAccount}
         onRetry={ensureAccountsLoaded}
       />
     </div>

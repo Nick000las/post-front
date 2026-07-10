@@ -6,7 +6,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from '@/components/ui/sheet'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Checkbox } from '@/components/ui/checkbox'
 
 function AccountDrawer({
   open,
@@ -15,8 +15,8 @@ function AccountDrawer({
   accounts,
   status,
   error,
-  selectedAccountId,
-  onSelectAccount,
+  selectedAccountIds = [],
+  onToggleAccount,
   onRetry,
 }) {
   return (
@@ -25,7 +25,7 @@ function AccountDrawer({
         <SheetHeader>
           <SheetTitle>Contas do {platformName}</SheetTitle>
           <SheetDescription>
-            Escolha a conta que será usada para publicar.
+            Escolha as contas que serão usadas para publicar.
           </SheetDescription>
         </SheetHeader>
 
@@ -58,18 +58,25 @@ function AccountDrawer({
           )}
 
           {status === 'success' && accounts.length > 0 && (
-            <RadioGroup value={selectedAccountId ?? ''} onValueChange={onSelectAccount}>
-              {accounts.map((account) => (
-                <label
-                  key={account.id}
-                  htmlFor={`account-${account.id}`}
-                  className="flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 hover:bg-muted"
-                >
-                  <RadioGroupItem value={account.id} id={`account-${account.id}`} />
-                  <span className="text-sm font-medium text-foreground">{account.name}</span>
-                </label>
-              ))}
-            </RadioGroup>
+            <div className="flex flex-col gap-2">
+              {accounts.map((account) => {
+                const isChecked = selectedAccountIds.includes(account.id)
+                return (
+                  <label
+                    key={account.id}
+                    htmlFor={`account-${account.id}`}
+                    className="flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 hover:bg-muted"
+                  >
+                    <Checkbox
+                      id={`account-${account.id}`}
+                      checked={isChecked}
+                      onCheckedChange={() => onToggleAccount(account.id)}
+                    />
+                    <span className="text-sm font-medium text-foreground">{account.name}</span>
+                  </label>
+                )
+              })}
+            </div>
           )}
         </div>
       </SheetContent>

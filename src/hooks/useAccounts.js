@@ -21,6 +21,16 @@ export function useAccounts() {
         setStatus('success')
       })
       .catch((err) => {
+        // Bug conhecido do backend: usuário sem nenhuma conta cadastrada faz
+        // o service lançar exception (500) em vez de devolver lista vazia.
+        // Tratamos como "sem contas" em vez de estado de erro.
+        if (err.status === 500) {
+          statusRef.current = 'success'
+          setAccounts([])
+          setStatus('success')
+          return
+        }
+
         statusRef.current = 'error'
         setError(err.message ?? 'Erro ao carregar contas')
         setStatus('error')

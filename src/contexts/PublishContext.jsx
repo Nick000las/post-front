@@ -1,7 +1,9 @@
 import { createContext, useContext, useState, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAccounts } from '@/hooks/useAccounts'
 import { publishPost } from '@/api/posts'
+import { useAuth } from '@/contexts/AuthContext'
 import { PLATFORMS } from '@/lib/platforms'
 import { VIDEO_SIZE_LIMIT } from '@/lib/constants'
 
@@ -14,15 +16,17 @@ export function PublishProvider({ children }) {
   const [selectedPlatforms, setSelectedPlatforms] = useState(new Set(['instagram']))
   const [isPublishing, setIsPublishing] = useState(false)
 
-  // Conta escolhida por plataforma, ex: { instagram: '17841413894963850' }
+  // Contas escolhidas por plataforma, ex: { instagram: ['17841413894963850', '1784141...'] }
   const [selectedAccounts, setSelectedAccounts] = useState({})
   const [activeDrawerPlatform, setActiveDrawerPlatform] = useState(null)
   const { accounts, status: accountsStatus, error: accountsError, ensureLoaded: ensureAccountsLoaded } = useAccounts()
+  const { logout } = useAuth()
+  const navigate = useNavigate()
 
   const isVideo = file ? file.type.startsWith('video/') : false
 
   const hasAccountForEverySelectedPlatform = useMemo(
-    () => Array.from(selectedPlatforms).every((platformId) => Boolean(selectedAccounts[platformId])),
+    () => Array.from(selectedPlatforms).every((platformId) => (selectedAccounts[platformId]?.length ?? 0) > 0),
     [selectedPlatforms, selectedAccounts]
   )
 
@@ -34,10 +38,14 @@ export function PublishProvider({ children }) {
   const accountLabels = useMemo(() => {
     const labels = {}
     for (const platformId of selectedPlatforms) {
-      const accountId = selectedAccounts[platformId]
-      if (!accountId) continue
-      const account = accounts.find((acc) => acc.id === accountId)
-      if (account) labels[platformId] = account.name
+      const ids = selectedAccounts[platformId]
+      if (!ids || ids.length === 0) continue
+      if (ids.length === 1) {
+        const account = accounts.find((acc) => acc.id === ids[0])
+        if (account) labels[platformId] = account.name
+      } else {
+        labels[platformId] = `${ids.length} contas selecionadas`
+      }
     }
     return labels
   }, [selectedPlatforms, selectedAccounts, accounts])
@@ -100,31 +108,78 @@ export function PublishProvider({ children }) {
     if (!open) setActiveDrawerPlatform(null)
   }, [])
 
-  const handleSelectAccount = useCallback((accountId) => {
+  const handleToggleAccount = useCallback((accountId) => {
     if (!activeDrawerPlatform) return
-    setSelectedAccounts(prev => ({ ...prev, [activeDrawerPlatform]: accountId }))
-  }, [activeDrawerPlatform])
+    const platformId = activeDrawerPlatform
+    const current = selectedAccounts[platformId] ?? []
+    const next = current.includes(accountId)
+      ? current.filter((id) => id !== accountId)
+      : [...current, accountId]
+
+    setSelectedAccounts(prev => {
+      const nextAccounts = { ...prev }
+      if (next.length === 0) delete nextAccounts[platformId]
+      else nextAccounts[platformId] = next
+      return nextAccounts
+    })
+
+    // Zerou as contas dessa plataforma: desmarca o checkbox em "Publicar em".
+    // O drawer permanece aberto (usuário fecha manualmente).
+    if (next.length === 0) {
+      setSelectedPlatforms(prev => {
+        if (!prev.has(platformId)) return prev
+        const nextSet = new Set(prev)
+        nextSet.delete(platformId)
+        return nextSet
+      })
+    }
+  }, [activeDrawerPlatform, selectedAccounts])
 
   const handlePublish = async () => {
     if (!file || selectedPlatforms.size === 0) return
+    const accountIds = Object.values(selectedAccounts).flat()
+    if (accountIds.length === 0) return
+
     setIsPublishing(true)
-
     try {
-      const data = await publishPost(file, caption)
-      toast.success(data.message ?? 'Publicado com sucesso!', {
-        description: `Post ID: ${data.postId}`,
-      })
+      const data = await publishPost(file, caption, accountIds)
+      const detalhes = data.detalhes ?? []
+      const successCount = detalhes.filter((d) => d.status === 'success').length
+      const failCount = detalhes.length - successCount
 
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
-      setFile(null)
-      setPreviewUrl(null)
-      setCaption('')
-      setSelectedPlatforms(new Set(['instagram']))
+      const description = detalhes
+        .map((d) => {
+          const label = accounts.find((acc) => acc.id === d.accountId)?.name ?? d.accountId
+          return d.status === 'success' ? `✓ ${label}` : `✗ ${label}: ${d.error ?? 'Falha desconhecida'}`
+        })
+        .join('\n')
+
+      if (failCount === 0) {
+        toast.success(data.message ?? 'Publicado com sucesso!', { description })
+      } else if (successCount === 0) {
+        toast.error('Falha ao publicar', { description })
+      } else {
+        toast.warning('Publicado parcialmente', { description })
+      }
+
+      // Reseta arquivo/legenda/plataformas só se pelo menos uma conta publicou.
+      // selectedAccounts nunca é limpo aqui — mesmo comportamento de hoje.
+      if (successCount > 0) {
+        if (previewUrl) URL.revokeObjectURL(previewUrl)
+        setFile(null)
+        setPreviewUrl(null)
+        setCaption('')
+        setSelectedPlatforms(new Set(['instagram']))
+      }
     } catch (err) {
-      const message = err.name === 'AbortError'
-        ? 'A requisição excedeu o tempo limite. Tente novamente.'
-        : err.message
-      toast.error('Falha ao publicar', { description: message })
+      if (err.status === 401) {
+        await logout()
+        navigate('/login')
+      } else if (err.status === 500) {
+        toast.error('Falha ao publicar', { description: 'Erro no servidor. Tente novamente mais tarde.' })
+      } else {
+        toast.error('Falha ao publicar', { description: err.message })
+      }
     } finally {
       setIsPublishing(false)
     }
@@ -153,7 +208,7 @@ export function PublishProvider({ children }) {
     handlePlatformToggle,
     handleOpenAccountDrawer,
     handleDrawerOpenChange,
-    handleSelectAccount,
+    handleToggleAccount,
     handlePublish,
     ensureAccountsLoaded,
   }
