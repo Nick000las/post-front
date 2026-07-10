@@ -9,6 +9,7 @@ import AppLayout from '@/components/AppLayout'
 import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
 import AccountsManagementPage from '@/pages/AccountsManagementPage'
+import DraftsPage from '@/pages/DraftsPage'
 import App from './App'
 import './index.css'
 
@@ -35,6 +36,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               }
             />
             <Route path="/gerenciar-contas" element={<AccountsManagementPage />} />
+            <Route path="/rascunhos" element={<DraftsPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

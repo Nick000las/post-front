@@ -1,7 +1,10 @@
+import { useState } from 'react'
 import MediaDropzone from './components/MediaDropzone'
 import CaptionField from './components/CaptionField'
 import PlatformSelector from './components/PlatformSelector'
 import PublishButton from './components/PublishButton'
+import SaveDraftButton from './components/SaveDraftButton'
+import ConfirmActionSheet from './components/ConfirmActionSheet'
 import AccountDrawer from './components/AccountDrawer'
 import { usePublishContext } from '@/contexts/PublishContext'
 
@@ -13,6 +16,7 @@ function App() {
     setCaption,
     selectedPlatforms,
     isPublishing,
+    isSavingDraft,
     selectedAccounts,
     activeDrawerPlatform,
     accountsStatus,
@@ -29,8 +33,12 @@ function App() {
     handleDrawerOpenChange,
     handleToggleAccount,
     handlePublish,
+    handleSaveDraft,
     ensureAccountsLoaded,
   } = usePublishContext()
+
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false)
+  const accountCount = Object.values(selectedAccounts).flat().length
 
   return (
     <div className="min-h-screen bg-background">
@@ -62,12 +70,19 @@ function App() {
               onOpenDrawer={handleOpenAccountDrawer}
               accountLabels={accountLabels}
             />
-            <PublishButton
-              canPublish={canPublish}
-              isPublishing={isPublishing}
-              isVideo={isVideo}
-              onClick={handlePublish}
-            />
+            <div className="flex gap-2">
+              <SaveDraftButton
+                canSave={canPublish}
+                isSavingDraft={isSavingDraft}
+                onClick={handleSaveDraft}
+              />
+              <PublishButton
+                canPublish={canPublish}
+                isPublishing={isPublishing}
+                isVideo={isVideo}
+                onClick={() => setShowPublishConfirm(true)}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -83,6 +98,37 @@ function App() {
         onToggleAccount={handleToggleAccount}
         onRetry={ensureAccountsLoaded}
       />
+
+      <ConfirmActionSheet
+        open={showPublishConfirm}
+        onOpenChange={setShowPublishConfirm}
+        title="Confirmar publicação"
+        description="Revise os detalhes antes de publicar."
+        confirmText="Confirmar publicação"
+        loadingText={isVideo ? 'Publicando vídeo, isso pode levar alguns minutos...' : 'Publicando...'}
+        isLoading={isPublishing}
+        onConfirm={handlePublish}
+      >
+        <div className="rounded-lg border px-3 py-2.5 flex flex-col gap-2 text-sm">
+          <p className="text-foreground">
+            <span className="font-medium">Legenda: </span>
+            {caption.trim() ? (
+              <span className="line-clamp-3">{caption}</span>
+            ) : (
+              <span className="text-muted-foreground">Sem legenda</span>
+            )}
+          </p>
+          <p className="text-foreground">
+            <span className="font-medium">Contas selecionadas: </span>
+            {accountCount}
+          </p>
+          {isVideo && (
+            <p className="text-xs text-muted-foreground">
+              Vídeos podem levar alguns minutos para publicar.
+            </p>
+          )}
+        </div>
+      </ConfirmActionSheet>
     </div>
   )
 }

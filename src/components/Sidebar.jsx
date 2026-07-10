@@ -1,11 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { LogOut, Send, Users } from 'lucide-react'
+import { LogOut, Send, Users, FileText } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Publicar Post', icon: Send, end: true },
   { to: '/gerenciar-contas', label: 'Contas', icon: Users, end: false },
+  { to: '/rascunhos', label: 'Rascunhos', icon: FileText, end: false },
 ]
 
 function Sidebar() {

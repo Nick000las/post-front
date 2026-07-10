@@ -2,10 +2,11 @@ import { createContext, useContext, useState, useMemo, useCallback } from 'react
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAccounts } from '@/hooks/useAccounts'
-import { publishPost } from '@/api/posts'
+import { publishPost, saveDraft } from '@/api/posts'
 import { useAuth } from '@/contexts/AuthContext'
 import { PLATFORMS } from '@/lib/platforms'
 import { VIDEO_SIZE_LIMIT } from '@/lib/constants'
+import { summarizePublishResult, toastPublishResult } from '@/lib/publishResult'
 
 const PublishContext = createContext(null)
 
@@ -15,6 +16,7 @@ export function PublishProvider({ children }) {
   const [caption, setCaption] = useState('')
   const [selectedPlatforms, setSelectedPlatforms] = useState(new Set(['instagram']))
   const [isPublishing, setIsPublishing] = useState(false)
+  const [isSavingDraft, setIsSavingDraft] = useState(false)
 
   // Contas escolhidas por plataforma, ex: { instagram: ['17841413894963850', '1784141...'] }
   const [selectedAccounts, setSelectedAccounts] = useState({})
@@ -34,6 +36,7 @@ export function PublishProvider({ children }) {
     && selectedPlatforms.size > 0
     && hasAccountForEverySelectedPlatform
     && !isPublishing
+    && !isSavingDraft
 
   const accountLabels = useMemo(() => {
     const labels = {}
@@ -136,31 +139,15 @@ export function PublishProvider({ children }) {
   }, [activeDrawerPlatform, selectedAccounts])
 
   const handlePublish = async () => {
-    if (!file || selectedPlatforms.size === 0) return
+    if (!file || selectedPlatforms.size === 0) return false
     const accountIds = Object.values(selectedAccounts).flat()
-    if (accountIds.length === 0) return
+    if (accountIds.length === 0) return false
 
     setIsPublishing(true)
     try {
       const data = await publishPost(file, caption, accountIds)
-      const detalhes = data.detalhes ?? []
-      const successCount = detalhes.filter((d) => d.status === 'success').length
-      const failCount = detalhes.length - successCount
-
-      const description = detalhes
-        .map((d) => {
-          const label = accounts.find((acc) => acc.id === d.accountId)?.name ?? d.accountId
-          return d.status === 'success' ? `✓ ${label}` : `✗ ${label}: ${d.error ?? 'Falha desconhecida'}`
-        })
-        .join('\n')
-
-      if (failCount === 0) {
-        toast.success(data.message ?? 'Publicado com sucesso!', { description })
-      } else if (successCount === 0) {
-        toast.error('Falha ao publicar', { description })
-      } else {
-        toast.warning('Publicado parcialmente', { description })
-      }
+      const { successCount, failCount, description } = summarizePublishResult(data.detalhes ?? [], accounts)
+      toastPublishResult({ successCount, failCount, description, successMessage: data.message ?? 'Publicado com sucesso!' })
 
       // Reseta arquivo/legenda/plataformas só se pelo menos uma conta publicou.
       // selectedAccounts nunca é limpo aqui — mesmo comportamento de hoje.
@@ -171,6 +158,7 @@ export function PublishProvider({ children }) {
         setCaption('')
         setSelectedPlatforms(new Set(['instagram']))
       }
+      return successCount > 0
     } catch (err) {
       if (err.status === 401) {
         await logout()
@@ -180,8 +168,41 @@ export function PublishProvider({ children }) {
       } else {
         toast.error('Falha ao publicar', { description: err.message })
       }
+      return false
     } finally {
       setIsPublishing(false)
+    }
+  }
+
+  const handleSaveDraft = async () => {
+    if (!file || selectedPlatforms.size === 0) return false
+    const accountIds = Object.values(selectedAccounts).flat()
+    if (accountIds.length === 0) return false
+
+    setIsSavingDraft(true)
+    try {
+      await saveDraft(file, caption, accountIds)
+      toast.success('Rascunho salvo com sucesso')
+
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      setFile(null)
+      setPreviewUrl(null)
+      setCaption('')
+      setSelectedPlatforms(new Set(['instagram']))
+      setSelectedAccounts({})
+      return true
+    } catch (err) {
+      if (err.status === 401) {
+        await logout()
+        navigate('/login')
+      } else if (err.status === 500) {
+        toast.error('Falha ao salvar rascunho', { description: 'Erro no servidor. Tente novamente mais tarde.' })
+      } else {
+        toast.error('Falha ao salvar rascunho', { description: err.message })
+      }
+      return false
+    } finally {
+      setIsSavingDraft(false)
     }
   }
 
@@ -194,6 +215,7 @@ export function PublishProvider({ children }) {
     setCaption,
     selectedPlatforms,
     isPublishing,
+    isSavingDraft,
     selectedAccounts,
     activeDrawerPlatform,
     accountsStatus,
@@ -210,6 +232,7 @@ export function PublishProvider({ children }) {
     handleDrawerOpenChange,
     handleToggleAccount,
     handlePublish,
+    handleSaveDraft,
     ensureAccountsLoaded,
   }
 

@@ -8,7 +8,7 @@ function PublishButton({ canPublish, isPublishing, isVideo, onClick }) {
 
   return (
     <Button
-      className="w-full h-11 text-base"
+      className="flex-1 h-11 text-base"
       disabled={!canPublish}
       onClick={onClick}
     >
@@ -20,7 +20,7 @@ function PublishButton({ canPublish, isPublishing, isVideo, onClick }) {
       ) : (
         <>
           <Send className="mr-2 h-4 w-4 shrink-0" />
-          Publicar
+          Publicar agora
         </>
       )}
     </Button>
