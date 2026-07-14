@@ -10,6 +10,7 @@ import LoginPage from '@/pages/LoginPage'
 import RegisterPage from '@/pages/RegisterPage'
 import AccountsManagementPage from '@/pages/AccountsManagementPage'
 import DraftsPage from '@/pages/DraftsPage'
+import FeedPage from '@/pages/FeedPage'
 import App from './App'
 import './index.css'
 
@@ -37,6 +38,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             />
             <Route path="/gerenciar-contas" element={<AccountsManagementPage />} />
             <Route path="/rascunhos" element={<DraftsPage />} />
+            <Route path="/feed" element={<FeedPage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
