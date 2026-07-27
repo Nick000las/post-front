@@ -4,6 +4,8 @@ import CaptionField from './components/CaptionField'
 import PlatformSelector from './components/PlatformSelector'
 import PublishButton from './components/PublishButton'
 import SaveDraftButton from './components/SaveDraftButton'
+import ScheduleButton from './components/ScheduleButton'
+import PublishAsClientSelect from './components/PublishAsClientSelect'
 import ConfirmActionSheet from './components/ConfirmActionSheet'
 import AccountDrawer from './components/AccountDrawer'
 import { usePublishContext } from '@/contexts/PublishContext'
@@ -14,9 +16,14 @@ function App() {
     previewUrl,
     caption,
     setCaption,
+    selectedClientId,
+    setSelectedClientId,
+    clients,
+    clientsStatus,
     selectedPlatforms,
     isPublishing,
     isSavingDraft,
+    isScheduling,
     selectedAccounts,
     activeDrawerPlatform,
     accountsStatus,
@@ -34,8 +41,11 @@ function App() {
     handleToggleAccount,
     handlePublish,
     handleSaveDraft,
+    handleSchedule,
     ensureAccountsLoaded,
   } = usePublishContext()
+
+  const noClientSelected = selectedClientId === null
 
   const [showPublishConfirm, setShowPublishConfirm] = useState(false)
   const accountCount = Object.values(selectedAccounts).flat().length
@@ -51,6 +61,15 @@ function App() {
             Selecione uma imagem ou vídeo, escreva a legenda e publique nas suas redes sociais.
           </p>
         </header>
+
+        <div className="mb-6 max-w-sm">
+          <PublishAsClientSelect
+            clients={clients}
+            clientsStatus={clientsStatus}
+            selectedClientId={selectedClientId}
+            onChange={setSelectedClientId}
+          />
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="flex flex-col gap-4">
@@ -69,12 +88,23 @@ function App() {
               onToggle={handlePlatformToggle}
               onOpenDrawer={handleOpenAccountDrawer}
               accountLabels={accountLabels}
+              disabled={noClientSelected}
             />
-            <div className="flex gap-2">
+            {noClientSelected && (
+              <p className="text-sm text-muted-foreground">
+                Selecione um cliente para escolher as contas e publicar.
+              </p>
+            )}
+            <div className="flex flex-wrap gap-2">
               <SaveDraftButton
                 canSave={canPublish}
                 isSavingDraft={isSavingDraft}
                 onClick={handleSaveDraft}
+              />
+              <ScheduleButton
+                disabled={!canPublish}
+                isScheduling={isScheduling}
+                onConfirm={handleSchedule}
               />
               <PublishButton
                 canPublish={canPublish}

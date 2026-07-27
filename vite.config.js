@@ -48,6 +48,34 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
+      '/clients': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/drafts': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/draft': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/feed': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/schedule': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/posts': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/uploads': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
     },
   },
 })

@@ -3,7 +3,7 @@ import { toast } from 'sonner'
 import { getDrafts, updateDraftCaption, deleteDraft, publishDraft } from '@/api/drafts'
 import { summarizePublishResult, toastPublishResult } from '@/lib/publishResult'
 
-export function useDraftsManagement() {
+export function useDraftsManagement(clientId) {
   const [drafts, setDrafts] = useState([])
   const [status, setStatus] = useState('idle') // idle | loading | success | error
   const [error, setError] = useState(null)
@@ -19,7 +19,7 @@ export function useDraftsManagement() {
       setError(null)
     }
 
-    return getDrafts()
+    return getDrafts(clientId)
       .then((list) => {
         statusRef.current = 'success'
         setDrafts(list)
@@ -31,17 +31,17 @@ export function useDraftsManagement() {
         setError(err.message ?? 'Erro ao carregar rascunhos')
         setStatus('error')
       })
-  }, [])
+  }, [clientId])
 
   useEffect(() => {
-    if (statusRef.current !== 'idle') return
+    statusRef.current = 'idle'
     fetchDrafts()
   }, [fetchDrafts])
 
   const updateCaption = useCallback(async (id, caption) => {
     setUpdatingId(id)
     try {
-      const data = await updateDraftCaption(id, caption)
+      const data = await updateDraftCaption(id, caption, clientId)
       // A resposta do PUT não inclui `accounts` — faz merge só do campo caption
       // para não sumir a lista de contas vinculadas já carregada.
       setDrafts((prev) => prev.map((d) => (d.id === id ? { ...d, caption: data.draft.caption } : d)))
@@ -53,12 +53,12 @@ export function useDraftsManagement() {
     } finally {
       setUpdatingId(null)
     }
-  }, [])
+  }, [clientId])
 
   const remove = useCallback(async (id) => {
     setDeletingId(id)
     try {
-      await deleteDraft(id)
+      await deleteDraft(id, clientId)
       setDrafts((prev) => prev.filter((d) => d.id !== id))
       toast.success('Rascunho excluído com sucesso!')
       return true
@@ -68,12 +68,12 @@ export function useDraftsManagement() {
     } finally {
       setDeletingId(null)
     }
-  }, [])
+  }, [clientId])
 
   const publish = useCallback(async (id, accounts) => {
     setPublishingId(id)
     try {
-      const data = await publishDraft(id)
+      const data = await publishDraft(id, clientId)
       const { successCount, failCount, description } = summarizePublishResult(data.detalhes ?? [], accounts ?? [])
       toastPublishResult({ successCount, failCount, description, successMessage: data.message ?? 'Publicado com sucesso!' })
 
@@ -92,7 +92,7 @@ export function useDraftsManagement() {
     } finally {
       setPublishingId(null)
     }
-  }, [fetchDrafts])
+  }, [fetchDrafts, clientId])
 
   return {
     drafts,

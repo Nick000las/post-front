@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { PLATFORMS } from '@/lib/platforms'
 
-function PlatformSelector({ selectedPlatforms, onToggle, onOpenDrawer, accountLabels }) {
+function PlatformSelector({ selectedPlatforms, onToggle, onOpenDrawer, accountLabels, disabled: disabledAll = false }) {
   return (
     <div className="flex flex-col gap-2">
       <label className="text-sm font-medium text-foreground">
@@ -12,8 +12,9 @@ function PlatformSelector({ selectedPlatforms, onToggle, onOpenDrawer, accountLa
       </label>
       <Card>
         <CardContent className="p-3 flex flex-col gap-2">
-          {PLATFORMS.map(({ id, name, icon: Icon, disabled, comingSoon }) => {
+          {PLATFORMS.map(({ id, name, icon: Icon, disabled: platformDisabled, comingSoon }) => {
             const isChecked = selectedPlatforms.has(id)
+            const disabled = platformDisabled || disabledAll
 
             return (
               <div

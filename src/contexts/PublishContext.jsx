@@ -1,8 +1,9 @@
-import { createContext, useContext, useState, useMemo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { createContext, useContext, useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { useAccounts } from '@/hooks/useAccounts'
-import { publishPost, saveDraft } from '@/api/posts'
+import { useClientAccounts } from '@/hooks/useClientAccounts'
+import { useClients } from '@/hooks/useClients'
+import { publishPost, saveDraft, schedulePost } from '@/api/posts'
 import { useAuth } from '@/contexts/AuthContext'
 import { PLATFORMS } from '@/lib/platforms'
 import { VIDEO_SIZE_LIMIT } from '@/lib/constants'
@@ -11,19 +12,34 @@ import { summarizePublishResult, toastPublishResult } from '@/lib/publishResult'
 const PublishContext = createContext(null)
 
 export function PublishProvider({ children }) {
+  const location = useLocation()
   const [file, setFile] = useState(null)
   const [previewUrl, setPreviewUrl] = useState(null)
-  const [caption, setCaption] = useState('')
+  const [caption, setCaption] = useState(() => location.state?.caption ?? '')
+  const [selectedClientId, setSelectedClientId] = useState(() => location.state?.clientId ?? null)
   const [selectedPlatforms, setSelectedPlatforms] = useState(new Set(['instagram']))
   const [isPublishing, setIsPublishing] = useState(false)
   const [isSavingDraft, setIsSavingDraft] = useState(false)
+  const [isScheduling, setIsScheduling] = useState(false)
 
   // Contas escolhidas por plataforma, ex: { instagram: ['17841413894963850', '1784141...'] }
   const [selectedAccounts, setSelectedAccounts] = useState({})
   const [activeDrawerPlatform, setActiveDrawerPlatform] = useState(null)
-  const { accounts, status: accountsStatus, error: accountsError, ensureLoaded: ensureAccountsLoaded } = useAccounts()
+  const { accounts, status: accountsStatus, error: accountsError, ensureLoaded: ensureAccountsLoaded } = useClientAccounts(selectedClientId)
+  const { clients, status: clientsStatus } = useClients()
   const { logout } = useAuth()
   const navigate = useNavigate()
+
+  // Ao trocar de cliente, limpa as contas escolhidas do cliente anterior
+  // (contas são escopadas por cliente e não fazem sentido entre clientes).
+  const prevClientRef = useRef(selectedClientId)
+  useEffect(() => {
+    if (prevClientRef.current !== selectedClientId) {
+      prevClientRef.current = selectedClientId
+      setSelectedAccounts({})
+      setActiveDrawerPlatform(null)
+    }
+  }, [selectedClientId])
 
   const isVideo = file ? file.type.startsWith('video/') : false
 
@@ -33,10 +49,12 @@ export function PublishProvider({ children }) {
   )
 
   const canPublish = file !== null
+    && selectedClientId !== null
     && selectedPlatforms.size > 0
     && hasAccountForEverySelectedPlatform
     && !isPublishing
     && !isSavingDraft
+    && !isScheduling
 
   const accountLabels = useMemo(() => {
     const labels = {}
@@ -145,7 +163,7 @@ export function PublishProvider({ children }) {
 
     setIsPublishing(true)
     try {
-      const data = await publishPost(file, caption, accountIds)
+      const data = await publishPost(file, caption, accountIds, selectedClientId)
       const { successCount, failCount, description } = summarizePublishResult(data.detalhes ?? [], accounts)
       toastPublishResult({ successCount, failCount, description, successMessage: data.message ?? 'Publicado com sucesso!' })
 
@@ -181,7 +199,7 @@ export function PublishProvider({ children }) {
 
     setIsSavingDraft(true)
     try {
-      await saveDraft(file, caption, accountIds)
+      await saveDraft(file, caption, accountIds, selectedClientId)
       toast.success('Rascunho salvo com sucesso')
 
       if (previewUrl) URL.revokeObjectURL(previewUrl)
@@ -206,6 +224,45 @@ export function PublishProvider({ children }) {
     }
   }
 
+  const handleSchedule = async (date) => {
+    if (!file || selectedClientId === null || selectedPlatforms.size === 0) return false
+    const accountIds = Object.values(selectedAccounts).flat()
+    if (accountIds.length === 0) return false
+
+    if (!(date instanceof Date) || Number.isNaN(date.getTime()) || date.getTime() <= Date.now()) {
+      toast.error('Escolha uma data e hora no futuro')
+      return false
+    }
+
+    setIsScheduling(true)
+    try {
+      // toISOString() sempre inclui o offset (Z/UTC), exigido pelo backend.
+      const data = await schedulePost(file, caption, accountIds, selectedClientId, date.toISOString())
+      const total = data.detalhes?.totalContas ?? accountIds.length
+      toast.success(data.message ?? 'Post agendado com sucesso!', {
+        description: `Agendado para ${date.toLocaleString('pt-BR')} · ${total} conta(s).`,
+      })
+
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      setFile(null)
+      setPreviewUrl(null)
+      setCaption('')
+      setSelectedPlatforms(new Set(['instagram']))
+      setSelectedAccounts({})
+      return true
+    } catch (err) {
+      if (err.status === 401) {
+        await logout()
+        navigate('/login')
+      } else {
+        toast.error('Falha ao agendar post', { description: err.message })
+      }
+      return false
+    } finally {
+      setIsScheduling(false)
+    }
+  }
+
   // O value não usa useMemo: irrelevante para performance com poucos componentes numa
   // única tela. Não introduzir memoização/seletores sem um problema real de re-render.
   const value = {
@@ -213,9 +270,14 @@ export function PublishProvider({ children }) {
     previewUrl,
     caption,
     setCaption,
+    selectedClientId,
+    setSelectedClientId,
+    clients,
+    clientsStatus,
     selectedPlatforms,
     isPublishing,
     isSavingDraft,
+    isScheduling,
     selectedAccounts,
     activeDrawerPlatform,
     accountsStatus,
@@ -233,6 +295,7 @@ export function PublishProvider({ children }) {
     handleToggleAccount,
     handlePublish,
     handleSaveDraft,
+    handleSchedule,
     ensureAccountsLoaded,
   }
 

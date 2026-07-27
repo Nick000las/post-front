@@ -35,7 +35,7 @@ function AccountFormSheet({ open, onOpenChange, mode, account, isSubmitting, onC
     if (isEdit && account) {
       setNome(account.name ?? '')
       setPlataforma(account.platform ?? 'instagram')
-      setInstagramId(account.instagram_user_id ?? '')
+      setInstagramId(account.instagram_user_id ?? account.platform_account_id ?? '')
     } else {
       setNome('')
       setPlataforma('instagram')
@@ -70,7 +70,7 @@ function AccountFormSheet({ open, onOpenChange, mode, account, isSubmitting, onC
     const payload = {}
     if (nome.trim() !== account.name) payload.nome = nome.trim()
     if (plataforma !== account.platform) payload.plataforma = plataforma
-    if (instagramId.trim() !== (account.instagram_user_id ?? '')) payload.instagramId = instagramId.trim()
+    if (instagramId.trim() !== (account.instagram_user_id ?? account.platform_account_id ?? '')) payload.instagramId = instagramId.trim()
     if (accessToken.trim() !== '') payload.access_token = accessToken.trim()
 
     if (Object.keys(payload).length === 0) {

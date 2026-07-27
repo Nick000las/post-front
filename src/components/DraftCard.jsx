@@ -7,7 +7,7 @@ import { Textarea } from '@/components/ui/textarea'
 import ConfirmActionSheet from '@/components/ConfirmActionSheet'
 import { PLATFORMS } from '@/lib/platforms'
 
-function DraftCard({ draft, isUpdating, isDeleting, isPublishing, onUpdateCaption, onDelete, onPublish }) {
+function DraftCard({ draft, isUpdating, isDeleting, isPublishing, onUpdateCaption, onDelete, onPublish, extraAction }) {
   const [isEditingCaption, setIsEditingCaption] = useState(false)
   const [captionDraft, setCaptionDraft] = useState(draft.caption ?? '')
   const [showPublishConfirm, setShowPublishConfirm] = useState(false)
@@ -15,7 +15,7 @@ function DraftCard({ draft, isUpdating, isDeleting, isPublishing, onUpdateCaptio
 
   const isBusy = isUpdating || isDeleting || isPublishing
   const isVideo = draft.file_type?.startsWith('video/')
-  const mediaUrl = `${import.meta.env.VITE_API_URL}/uploads/${draft.file_path}`
+  const mediaUrl = `${import.meta.env.VITE_API_URL ?? ''}/uploads/${draft.file_path}`
   const accountCount = draft.accounts?.length ?? 0
 
   const startEditingCaption = () => {
@@ -95,7 +95,7 @@ function DraftCard({ draft, isUpdating, isDeleting, isPublishing, onUpdateCaptio
           {new Date(draft.updated_at).toLocaleDateString('pt-BR')}
         </p>
 
-        <div className="flex justify-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
           <Button
             type="button"
             variant="outline"
@@ -106,6 +106,7 @@ function DraftCard({ draft, isUpdating, isDeleting, isPublishing, onUpdateCaptio
             <Trash2 className="h-4 w-4 shrink-0" />
             Excluir
           </Button>
+          {extraAction}
           <Button type="button" size="sm" onClick={() => setShowPublishConfirm(true)} disabled={isBusy}>
             <Send className="h-4 w-4 shrink-0" />
             Publicar

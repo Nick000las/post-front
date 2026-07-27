@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge'
 
 function FeedPostCard({ post }) {
   const isVideo = post.file_type?.startsWith('video/')
-  const mediaUrl = `${import.meta.env.VITE_API_URL}/uploads/${post.file_path}`
+  const mediaUrl = `${import.meta.env.VITE_API_URL ?? ''}/uploads/${post.file_path}`
 
   return (
     <Card>
