@@ -21,7 +21,7 @@ function Sidebar({ collapsed = false }) {
   return (
     <aside
       className={cn(
-        'shrink-0 border-r bg-card flex flex-col h-full transition-all',
+        'shrink-0 border-r bg-card flex flex-col h-screen sticky top-0 transition-all',
         collapsed ? 'w-16' : 'w-64'
       )}
     >

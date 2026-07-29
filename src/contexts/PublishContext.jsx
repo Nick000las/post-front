@@ -7,7 +7,6 @@ import { publishPost, saveDraft, schedulePost } from '@/api/posts'
 import { useAuth } from '@/contexts/AuthContext'
 import { PLATFORMS } from '@/lib/platforms'
 import { VIDEO_SIZE_LIMIT } from '@/lib/constants'
-import { summarizePublishResult, toastPublishResult } from '@/lib/publishResult'
 
 const PublishContext = createContext(null)
 
@@ -164,19 +163,21 @@ export function PublishProvider({ children }) {
     setIsPublishing(true)
     try {
       const data = await publishPost(file, caption, accountIds, selectedClientId)
-      const { successCount, failCount, description } = summarizePublishResult(data.detalhes ?? [], accounts)
-      toastPublishResult({ successCount, failCount, description, successMessage: data.message ?? 'Publicado com sucesso!' })
+      // A publicação é assíncrona (fila): o 202 só confirma que os jobs foram
+      // enfileirados, não o resultado por conta — isso só existe depois, via
+      // GET /posts/:id/status ou no Feed.
+      const total = data.detalhes?.totalContas ?? accountIds.length
+      toast.success(data.message ?? 'Publicado com sucesso!', {
+        description: `${total} conta(s) em processamento.`,
+      })
 
-      // Reseta arquivo/legenda/plataformas só se pelo menos uma conta publicou.
       // selectedAccounts nunca é limpo aqui — mesmo comportamento de hoje.
-      if (successCount > 0) {
-        if (previewUrl) URL.revokeObjectURL(previewUrl)
-        setFile(null)
-        setPreviewUrl(null)
-        setCaption('')
-        setSelectedPlatforms(new Set(['instagram']))
-      }
-      return successCount > 0
+      if (previewUrl) URL.revokeObjectURL(previewUrl)
+      setFile(null)
+      setPreviewUrl(null)
+      setCaption('')
+      setSelectedPlatforms(new Set(['instagram']))
+      return true
     } catch (err) {
       if (err.status === 401) {
         await logout()

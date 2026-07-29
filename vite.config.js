@@ -63,6 +63,12 @@ export default defineConfig({
       '/feed': {
         target: 'http://localhost:3001',
         changeOrigin: true,
+        // '/feed' também é uma rota de página (react-router). Navegação de
+        // browser (reload, digitar a URL) manda Accept: text/html — nesse
+        // caso não proxiamos, deixando o Vite servir o index.html da SPA.
+        bypass(req) {
+          if (req.headers.accept?.includes('text/html')) return '/index.html'
+        },
       },
       '/schedule': {
         target: 'http://localhost:3001',

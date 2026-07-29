@@ -10,10 +10,10 @@ function AppLayout() {
   const isClientDetailArea = /^\/clientes\/[^/]+/.test(pathname)
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex min-h-screen bg-background">
       <Sidebar collapsed={isClientDetailArea} />
       {isClientDetailArea && <ClientRail />}
-      <main className="flex-1 overflow-y-auto">
+      <main className="flex-1 min-w-0">
         <Outlet />
       </main>
     </div>

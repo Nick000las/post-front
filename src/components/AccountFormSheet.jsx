@@ -9,13 +9,12 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import PasswordInput from '@/components/PasswordInput'
 import { cn } from '@/lib/utils'
-import { PLATFORMS } from '@/lib/platforms'
+import { PLATFORMS, PLATFORM_ACCOUNT_ID_META } from '@/lib/platforms'
 import { validateAccountForm } from '@/lib/validators'
 
 function AccountFormSheet({ open, onOpenChange, mode, account, isSubmitting, onCreate, onUpdate }) {
@@ -35,7 +34,7 @@ function AccountFormSheet({ open, onOpenChange, mode, account, isSubmitting, onC
     if (isEdit && account) {
       setNome(account.name ?? '')
       setPlataforma(account.platform ?? 'instagram')
-      setInstagramId(account.instagram_user_id ?? account.platform_account_id ?? '')
+      setInstagramId(account.platform_account_id ?? '')
     } else {
       setNome('')
       setPlataforma('instagram')
@@ -60,7 +59,7 @@ function AccountFormSheet({ open, onOpenChange, mode, account, isSubmitting, onC
       const ok = await onCreate({
         nome: nome.trim(),
         plataforma,
-        instagramId: instagramId.trim(),
+        platformAccountId: instagramId.trim(),
         access_token: accessToken.trim(),
       })
       if (ok) onOpenChange(false)
@@ -70,7 +69,7 @@ function AccountFormSheet({ open, onOpenChange, mode, account, isSubmitting, onC
     const payload = {}
     if (nome.trim() !== account.name) payload.nome = nome.trim()
     if (plataforma !== account.platform) payload.plataforma = plataforma
-    if (instagramId.trim() !== (account.instagram_user_id ?? account.platform_account_id ?? '')) payload.instagramId = instagramId.trim()
+    if (instagramId.trim() !== (account.platform_account_id ?? '')) payload.platformAccountId = instagramId.trim()
     if (accessToken.trim() !== '') payload.access_token = accessToken.trim()
 
     if (Object.keys(payload).length === 0) {
@@ -107,7 +106,7 @@ function AccountFormSheet({ open, onOpenChange, mode, account, isSubmitting, onC
           <div className="flex flex-col gap-1">
             <Label>Plataforma</Label>
             <RadioGroup value={plataforma} onValueChange={setPlataforma} className="gap-2">
-              {PLATFORMS.map(({ id, name, icon: Icon, disabled, comingSoon }) => (
+              {PLATFORMS.map(({ id, name, icon: Icon, disabled }) => (
                 <label
                   key={id}
                   htmlFor={`account-platform-${id}`}
@@ -119,24 +118,21 @@ function AccountFormSheet({ open, onOpenChange, mode, account, isSubmitting, onC
                   <RadioGroupItem value={id} id={`account-platform-${id}`} disabled={disabled || isSubmitting} />
                   <Icon className="h-5 w-5 text-foreground shrink-0" />
                   <span className="text-sm font-medium text-foreground flex-1">{name}</span>
-                  {comingSoon && (
-                    <Badge variant="secondary" className="text-xs">
-                      Em breve
-                    </Badge>
-                  )}
                 </label>
               ))}
             </RadioGroup>
           </div>
 
           <div className="flex flex-col gap-1">
-            <Label htmlFor="account-instagram-id">Instagram ID</Label>
+            <Label htmlFor="account-instagram-id">
+              {PLATFORM_ACCOUNT_ID_META[plataforma]?.label ?? 'Identificador da conta'}
+            </Label>
             <Input
               id="account-instagram-id"
               value={instagramId}
               onChange={(e) => setInstagramId(e.target.value)}
               disabled={isSubmitting}
-              placeholder="Ex: 17841413894963850"
+              placeholder={PLATFORM_ACCOUNT_ID_META[plataforma]?.placeholder}
             />
           </div>
 

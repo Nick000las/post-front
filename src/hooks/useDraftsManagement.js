@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { getDrafts, updateDraftCaption, deleteDraft, publishDraft } from '@/api/drafts'
-import { summarizePublishResult, toastPublishResult } from '@/lib/publishResult'
 
 export function useDraftsManagement(clientId) {
   const [drafts, setDrafts] = useState([])
@@ -70,29 +69,26 @@ export function useDraftsManagement(clientId) {
     }
   }, [clientId])
 
-  const publish = useCallback(async (id, accounts) => {
+  const publish = useCallback(async (id) => {
     setPublishingId(id)
     try {
       const data = await publishDraft(id, clientId)
-      const { successCount, failCount, description } = summarizePublishResult(data.detalhes ?? [], accounts ?? [])
-      toastPublishResult({ successCount, failCount, description, successMessage: data.message ?? 'Publicado com sucesso!' })
-
-      if (failCount === 0) {
-        setDrafts((prev) => prev.filter((d) => d.id !== id))
-        return true
-      }
-
-      // Falha parcial ou total: o contrato não garante o estado do rascunho
-      // no back-end nesse caso, então busca de novo em vez de assumir.
-      await fetchDrafts({ silent: true })
-      return false
+      // A publicação é assíncrona (fila): o 202 só confirma que os jobs foram
+      // enfileirados, não o resultado por conta — isso só existe depois, via
+      // GET /posts/:id/status ou no Feed.
+      const total = data.detalhes?.totalContas
+      toast.success(data.message ?? 'Publicado com sucesso!', {
+        description: total != null ? `${total} conta(s) em processamento.` : undefined,
+      })
+      setDrafts((prev) => prev.filter((d) => d.id !== id))
+      return true
     } catch (err) {
       toast.error('Falha ao publicar rascunho', { description: err.message })
       return false
     } finally {
       setPublishingId(null)
     }
-  }, [fetchDrafts, clientId])
+  }, [clientId])
 
   return {
     drafts,

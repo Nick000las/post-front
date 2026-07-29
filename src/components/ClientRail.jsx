@@ -19,7 +19,7 @@ function ClientRail() {
   const [formOpen, setFormOpen] = useState(false)
 
   return (
-    <aside className="w-16 shrink-0 border-r bg-card flex flex-col h-full items-center py-4 gap-3">
+    <aside className="w-16 shrink-0 border-r bg-card flex flex-col h-screen sticky top-0 items-center py-4 gap-3">
       <div className="flex-1 flex flex-col gap-3 overflow-y-auto w-full items-center">
         {status === 'loading' && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
 
