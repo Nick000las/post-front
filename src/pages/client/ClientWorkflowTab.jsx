@@ -1,89 +1,245 @@
-import { useState } from 'react'
-import { ArrowRight } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
+import { memo, useMemo, useState } from 'react'
+import { useOutletContext } from 'react-router-dom'
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  pointerWithin,
+} from '@dnd-kit/core'
+import { Loader2, AlertCircle, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import KanbanCard, { KanbanCardContent } from '@/components/KanbanCard'
+import KanbanCardModal from '@/components/KanbanCardModal'
+import ConfirmActionSheet from '@/components/ConfirmActionSheet'
+import { useKanbanManagement } from '@/hooks/useKanbanManagement'
+import { cn } from '@/lib/utils'
 
-// TODO: aguardando endpoint de workflow_stage por cliente no backend.
-// Enquanto isso, é um mock puramente visual — estado local, sem persistência
-// (recarregar a página reseta) e sem chamada de API.
-const COLUMNS = [
-  { id: 'ideias', title: 'Ideias' },
-  { id: 'design', title: 'Design' },
-  { id: 'aprovacao', title: 'Aprovação' },
-  { id: 'agendado', title: 'Agendado' },
-]
+// Colunas fixas que o backend não aceita como destino de um move manual.
+const LOCKED_FIXED_KEYS = ['AGENDADO', 'FINALIZADO']
 
-const INITIAL_CARDS = [
-  { id: 1, title: 'Post de lançamento — coleção verão', column: 'ideias' },
-  { id: 2, title: 'Reels bastidores do estúdio', column: 'ideias' },
-  { id: 3, title: 'Carrossel de depoimentos', column: 'design' },
-  { id: 4, title: 'Promoção de Dia dos Pais', column: 'aprovacao' },
-  { id: 5, title: 'Story enquete de produtos', column: 'agendado' },
-]
-
-function nextColumn(columnId) {
-  const idx = COLUMNS.findIndex((c) => c.id === columnId)
-  return COLUMNS[idx + 1]?.id ?? null
+function isLockedColumn(column) {
+  return LOCKED_FIXED_KEYS.includes(column?.fixed_key)
 }
 
-function ClientWorkflowTab() {
-  const [cards, setCards] = useState(INITIAL_CARDS)
+// memo: durante o arrasto o dnd-kit atualiza o `isOver` a cada movimento do
+// ponteiro. Sem memo, o componente pai re-renderiza todas as colunas (e todos
+// os cards) a cada frame; com memo, só a coluna sob o cursor redesenha.
+const KanbanColumn = memo(function KanbanColumn({ column, onOpenCard, onRequestDelete }) {
+  const locked = isLockedColumn(column)
+  // `data` memoizado: um objeto literal novo a cada render invalidaria o
+  // cache interno do dnd-kit para este droppable.
+  const droppableData = useMemo(() => ({ locked }), [locked])
+  const { setNodeRef, isOver } = useDroppable({
+    id: `column-${column.id}`,
+    data: droppableData,
+  })
 
-  const moveCard = (cardId) => {
-    setCards((prev) =>
-      prev.map((card) => {
-        if (card.id !== cardId) return card
-        const target = nextColumn(card.column)
-        return target ? { ...card, column: target } : card
-      })
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-foreground">{column.name}</h3>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-muted-foreground">{column.posts.length}</span>
+          {!column.is_fixed && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => onRequestDelete(column)}
+              aria-label={`Excluir coluna ${column.name}`}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </div>
+
+      <div
+        ref={setNodeRef}
+        className={cn(
+          'flex flex-col gap-2 rounded-lg bg-muted/40 p-2 min-h-24 transition-colors',
+          isOver && locked && 'bg-destructive/10 ring-2 ring-destructive/40',
+          isOver && !locked && 'bg-accent/40 ring-2 ring-ring/40'
+        )}
+      >
+        {column.posts.length === 0 ? (
+          <p className="py-6 text-center text-xs text-muted-foreground">
+            {locked ? 'Preenchido automaticamente' : 'Nenhum post'}
+          </p>
+        ) : (
+          column.posts.map((post) => <KanbanCard key={post.id} post={post} onOpen={onOpenCard} />)
+        )}
+      </div>
+    </div>
+  )
+})
+
+function ClientWorkflowTab() {
+  const { clientId } = useOutletContext()
+  const {
+    columns,
+    status,
+    error,
+    creatingColumn,
+    deletingColumnId,
+    addColumn,
+    removeColumn,
+    moveCard,
+    refetch,
+  } = useKanbanManagement(clientId)
+
+  const [selectedPost, setSelectedPost] = useState(null)
+  const [newColumnName, setNewColumnName] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [activePost, setActivePost] = useState(null)
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+
+  const handleDragStart = (event) => {
+    const dragged = columns
+      .flatMap((c) => c.posts)
+      .find((p) => String(p.id) === String(event.active.id))
+    setActivePost(dragged ?? null)
+  }
+
+  const handleDragEnd = (event) => {
+    setActivePost(null)
+    const { active, over } = event
+    if (!over) return
+
+    // Só as colunas são droppables, então `over.id` é sempre `column-<id>`.
+    // Ids são comparados como string: o do card vem numérico da API.
+    const overId = String(over.id)
+    if (!overId.startsWith('column-')) return
+    const destColumnId = overId.replace('column-', '')
+
+    const sourceColumn = columns.find((c) =>
+      c.posts.some((p) => String(p.id) === String(active.id))
+    )
+    if (!sourceColumn) return
+    if (String(sourceColumn.id) === String(destColumnId)) return
+
+    // Bloqueio antecipado só de UX — o backend é a fonte de verdade e `moveCard`
+    // reverte o estado otimista se a API recusar de qualquer forma.
+    const destColumn = columns.find((c) => String(c.id) === String(destColumnId))
+    if (isLockedColumn(destColumn)) return
+
+    moveCard(active.id, destColumnId)
+  }
+
+  const handleCreateColumn = async (e) => {
+    e.preventDefault()
+    const name = newColumnName.trim()
+    if (!name) return
+    const ok = await addColumn(name)
+    if (ok) setNewColumnName('')
+  }
+
+  if (status === 'loading' && columns.length === 0) {
+    return (
+      <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        Carregando quadro...
+      </div>
+    )
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="flex flex-col items-center gap-3 py-16 text-center">
+        <AlertCircle className="h-6 w-6 text-destructive" />
+        <p className="text-sm text-muted-foreground">{error}</p>
+        <button
+          type="button"
+          onClick={refetch}
+          className="text-sm font-medium text-primary underline underline-offset-4"
+        >
+          Tentar novamente
+        </button>
+      </div>
     )
   }
 
   return (
     <div>
-      <Badge variant="secondary" className="mb-4">
-        Protótipo visual — sem persistência real
-      </Badge>
+      <form onSubmit={handleCreateColumn} className="mb-4 flex items-center justify-end gap-2">
+        <Input
+          value={newColumnName}
+          onChange={(e) => setNewColumnName(e.target.value)}
+          placeholder="Nome da nova coluna"
+          className="w-56"
+          disabled={creatingColumn}
+        />
+        <Button type="submit" disabled={creatingColumn || !newColumnName.trim()}>
+          {creatingColumn ? (
+            <Loader2 className="h-4 w-4 animate-spin shrink-0" />
+          ) : (
+            <Plus className="h-4 w-4 shrink-0" />
+          )}
+          Nova coluna
+        </Button>
+      </form>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {COLUMNS.map((column) => {
-          const columnCards = cards.filter((c) => c.column === column.id)
-          return (
-            <div key={column.id} className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-foreground">{column.title}</h3>
-                <span className="text-xs text-muted-foreground">{columnCards.length}</span>
-              </div>
+      {/* pointerWithin: com o card seguindo o cursor via DragOverlay, a coluna
+          sob o ponteiro é o alvo correto — o padrão (rectIntersection) mede
+          sobreposição de área e dispara alvos vizinhos com o card grande. */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={pointerWithin}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragCancel={() => setActivePost(null)}
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {columns.map((column) => (
+            <KanbanColumn
+              key={column.id}
+              column={column}
+              onOpenCard={setSelectedPost}
+              onRequestDelete={setDeleteTarget}
+            />
+          ))}
+        </div>
 
-              <div className="flex flex-col gap-2 rounded-lg bg-muted/40 p-2 min-h-24">
-                {columnCards.map((card) => {
-                  const canMove = nextColumn(card.column) !== null
-                  return (
-                    <Card key={card.id}>
-                      <CardContent className="p-3 flex flex-col gap-2">
-                        <p className="text-sm text-foreground">{card.title}</p>
-                        {canMove && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="self-end h-7 px-2 text-xs"
-                            onClick={() => moveCard(card.id)}
-                          >
-                            Avançar
-                            <ArrowRight className="h-3.5 w-3.5 shrink-0" />
-                          </Button>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )
-                })}
-              </div>
+        <DragOverlay dropAnimation={null}>
+          {activePost ? (
+            <div className="cursor-grabbing rotate-2 opacity-95 shadow-xl">
+              <KanbanCardContent post={activePost} />
             </div>
-          )
-        })}
-      </div>
+          ) : null}
+        </DragOverlay>
+      </DndContext>
+
+      <KanbanCardModal
+        open={selectedPost !== null}
+        onOpenChange={(open) => {
+          if (!open) setSelectedPost(null)
+        }}
+        post={selectedPost}
+      />
+
+      <ConfirmActionSheet
+        open={deleteTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null)
+        }}
+        title="Excluir coluna"
+        description={
+          deleteTarget
+            ? `A coluna "${deleteTarget.name}" será excluída e ${deleteTarget.posts.length} post(s) serão movidos para Ideias.`
+            : undefined
+        }
+        confirmText="Excluir"
+        loadingText="Excluindo..."
+        isLoading={deletingColumnId === deleteTarget?.id}
+        onConfirm={() => removeColumn(deleteTarget.id)}
+        variant="destructive"
+      />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import ConfirmActionSheet from '@/components/ConfirmActionSheet'
 import { PLATFORMS } from '@/lib/platforms'
+import { getThumbnailUrl } from '@/lib/media'
 
 function DraftCard({ draft, isUpdating, isDeleting, isPublishing, onUpdateCaption, onDelete, onPublish, extraAction }) {
   const [isEditingCaption, setIsEditingCaption] = useState(false)
@@ -14,8 +15,6 @@ function DraftCard({ draft, isUpdating, isDeleting, isPublishing, onUpdateCaptio
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   const isBusy = isUpdating || isDeleting || isPublishing
-  const isVideo = draft.file_type?.startsWith('video/')
-  const mediaUrl = `${import.meta.env.VITE_API_URL ?? ''}/uploads/${draft.file_path}`
   const accountCount = draft.accounts?.length ?? 0
 
   const startEditingCaption = () => {
@@ -31,11 +30,11 @@ function DraftCard({ draft, isUpdating, isDeleting, isPublishing, onUpdateCaptio
   return (
     <Card>
       <CardContent className="p-3 flex flex-col gap-3">
-        {isVideo ? (
-          <video src={mediaUrl} controls className="w-full rounded-lg max-h-64 object-cover bg-black" />
-        ) : (
-          <img src={mediaUrl} alt={draft.file_name} className="w-full rounded-lg max-h-64 object-cover" />
-        )}
+        <img
+          src={getThumbnailUrl(draft)}
+          alt={draft.file_name}
+          className="w-full rounded-lg max-h-64 object-cover"
+        />
 
         {isEditingCaption ? (
           <div className="flex flex-col gap-2">

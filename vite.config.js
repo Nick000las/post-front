@@ -82,6 +82,14 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
+      '/kanban': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/columns': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
     },
   },
 })

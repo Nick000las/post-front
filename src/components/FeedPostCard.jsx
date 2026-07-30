@@ -1,18 +1,16 @@
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { getThumbnailUrl } from '@/lib/media'
 
 function FeedPostCard({ post }) {
-  const isVideo = post.file_type?.startsWith('video/')
-  const mediaUrl = `${import.meta.env.VITE_API_URL ?? ''}/uploads/${post.file_path}`
-
   return (
     <Card>
       <CardContent className="p-3 flex flex-col gap-3">
-        {isVideo ? (
-          <video src={mediaUrl} controls className="w-full rounded-lg max-h-64 object-cover bg-black" />
-        ) : (
-          <img src={mediaUrl} alt={post.file_name} className="w-full rounded-lg max-h-64 object-cover" />
-        )}
+        <img
+          src={getThumbnailUrl(post)}
+          alt={post.file_name}
+          className="w-full rounded-lg max-h-64 object-cover"
+        />
 
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm text-muted-foreground">Publicado por {post.author.name}</p>
