@@ -31,9 +31,25 @@ export async function schedulePost(file, caption, accountIds, clientId, schedule
   return request('/upload/schedule', { method: 'POST', body: fd })
 }
 
+export async function changeScheduleDate(postId, clientId, scheduledFor) {
+  return request(`/schedule/${postId}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clientId, scheduled_for: scheduledFor }),
+  })
+}
+
+// Reverte o post para DRAFT (mídia e legenda preservadas) — não exclui nada.
 export async function cancelSchedule(postId, clientId) {
   const query = clientId != null ? `?clientId=${encodeURIComponent(clientId)}` : ''
   return request(`/schedule/${postId}${query}`, { method: 'DELETE' })
+}
+
+// Exclusão definitiva, válida em qualquer status. Não confundir com
+// deleteDraft (DELETE /draft/:id), que só aceita posts em DRAFT.
+export async function deletePost(postId, clientId) {
+  const query = clientId != null ? `?clientId=${encodeURIComponent(clientId)}` : ''
+  return request(`/posts/${postId}${query}`, { method: 'DELETE' })
 }
 
 export async function getPostStatus(postId, clientId) {

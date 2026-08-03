@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { useDraggable } from '@dnd-kit/core'
+import { ImageOff } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { PLATFORMS } from '@/lib/platforms'
@@ -11,17 +12,27 @@ import { getThumbnailUrl } from '@/lib/media'
 // e re-renderiza a coluna inteira — sem isso, todos os cards seriam redesenhados
 // junto, a cada frame.
 export const KanbanCardContent = memo(function KanbanCardContent({ post }) {
+  const thumbnailUrl = getThumbnailUrl(post)
+
   return (
     <Card>
       <CardContent className="p-2 flex flex-col gap-2">
         {/* Thumbnail é sempre .jpg (mesmo pra posts de vídeo) — não precisa do
-            branch vídeo/imagem aqui, só nas telas de detalhe com o original. */}
-        <img
-          src={getThumbnailUrl(post)}
-          alt={post.file_name}
-          draggable={false}
-          className="w-full rounded-md max-h-28 object-cover pointer-events-none"
-        />
+            branch vídeo/imagem aqui, só nas telas de detalhe com o original.
+            thumbnailUrl é null pra um draft sem mídia (removida ou nunca anexada). */}
+        {thumbnailUrl ? (
+          <img
+            src={thumbnailUrl}
+            alt={post.file_name}
+            draggable={false}
+            className="w-full rounded-md max-h-28 object-cover pointer-events-none"
+          />
+        ) : (
+          <div className="flex h-28 w-full flex-col items-center justify-center gap-1 rounded-md bg-muted/50 text-muted-foreground">
+            <ImageOff className="h-5 w-5" />
+            <span className="text-xs">Sem mídia</span>
+          </div>
+        )}
 
         <p className="text-sm text-foreground line-clamp-2">
           {post.caption?.trim() ? post.caption : <span className="text-muted-foreground">Sem legenda</span>}
@@ -45,11 +56,17 @@ export const KanbanCardContent = memo(function KanbanCardContent({ post }) {
   )
 })
 
-const KanbanCard = memo(function KanbanCard({ post, onOpen }) {
+const KanbanCard = memo(function KanbanCard({ post, onOpen, dragDisabled }) {
   // useDraggable (e não useSortable): não há reordenação dentro da coluna — o
   // backend não tem campo de ordem — então o cálculo de sort a cada movimento
   // seria custo puro. Quem segue o cursor é o DragOverlay no componente pai.
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: post.id })
+  // disabled: colunas automáticas (Agendado/Finalizado) não aceitam mover o
+  // card manualmente pra fora — quem tira o post de lá é uma ação (cancelar
+  // agendamento, etc.), não o drag.
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: post.id,
+    disabled: dragDisabled,
+  })
 
   return (
     // O clique simples chega no onClick porque o PointerSensor do DndContext pai
@@ -61,7 +78,7 @@ const KanbanCard = memo(function KanbanCard({ post, onOpen }) {
       onClick={() => onOpen(post)}
       // O card original vira só um "buraco" enquanto o overlay é arrastado.
       // touch-none evita o scroll do navegador competir com o gesto no mobile.
-      className={`touch-none cursor-grab active:cursor-grabbing ${isDragging ? 'opacity-40' : ''}`}
+      className={`touch-none ${dragDisabled ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing'} ${isDragging ? 'opacity-40' : ''}`}
     >
       <KanbanCardContent post={post} />
     </div>

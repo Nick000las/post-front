@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { Link, useOutletContext } from 'react-router-dom'
 import {
   DndContext,
   DragOverlay,
@@ -30,6 +30,9 @@ function isLockedColumn(column) {
 // os cards) a cada frame; com memo, só a coluna sob o cursor redesenha.
 const KanbanColumn = memo(function KanbanColumn({ column, onOpenCard, onRequestDelete }) {
   const locked = isLockedColumn(column)
+  // Só essa coluna fixa tem retenção por tempo — o backend já filtra
+  // GET /kanban pra devolver aqui só posts concluídos nos últimos 15 dias.
+  const isFinalizado = column.fixed_key === 'FINALIZADO'
   // `data` memoizado: um objeto literal novo a cada render invalidaria o
   // cache interno do dnd-kit para este droppable.
   const droppableData = useMemo(() => ({ locked }), [locked])
@@ -59,6 +62,16 @@ const KanbanColumn = memo(function KanbanColumn({ column, onOpenCard, onRequestD
         </div>
       </div>
 
+      {isFinalizado && (
+        <p className="-mt-2 text-xs text-muted-foreground">
+          Mostra só os últimos 15 dias — histórico completo no{' '}
+          <Link to="/feed" className="underline underline-offset-2 hover:text-foreground">
+            Feed
+          </Link>
+          .
+        </p>
+      )}
+
       <div
         ref={setNodeRef}
         className={cn(
@@ -69,10 +82,16 @@ const KanbanColumn = memo(function KanbanColumn({ column, onOpenCard, onRequestD
       >
         {column.posts.length === 0 ? (
           <p className="py-6 text-center text-xs text-muted-foreground">
-            {locked ? 'Preenchido automaticamente' : 'Nenhum post'}
+            {isFinalizado
+              ? 'Nenhum post finalizado nos últimos 15 dias'
+              : locked
+                ? 'Preenchido automaticamente'
+                : 'Nenhum post'}
           </p>
         ) : (
-          column.posts.map((post) => <KanbanCard key={post.id} post={post} onOpen={onOpenCard} />)
+          column.posts.map((post) => (
+            <KanbanCard key={post.id} post={post} onOpen={onOpenCard} dragDisabled={locked} />
+          ))
         )}
       </div>
     </div>
@@ -87,9 +106,24 @@ function ClientWorkflowTab() {
     error,
     creatingColumn,
     deletingColumnId,
+    updatingCaptionPostId,
+    updatingMediaPostId,
+    cancellingScheduleId,
+    changingScheduleDateId,
+    deletingPostId,
+    publishingPostId,
+    schedulingPostId,
     addColumn,
     removeColumn,
     moveCard,
+    updateCaptionAction,
+    updateDraftMediaAction,
+    removeDraftMediaAction,
+    changeScheduleDateAction,
+    cancelScheduleAction,
+    deletePostAction,
+    publishPostAction,
+    scheduleDraftAction,
     refetch,
   } = useKanbanManagement(clientId)
 
@@ -139,6 +173,41 @@ function ClientWorkflowTab() {
     const ok = await addColumn(name)
     if (ok) setNewColumnName('')
   }
+
+  const handleCancelSchedule = async (postId) => {
+    const ok = await cancelScheduleAction(postId)
+    // O post volta a ser rascunho e muda de coluna — fecha pra ver o quadro atualizado.
+    if (ok) setSelectedPost(null)
+    return ok
+  }
+
+  const handleDeletePost = async (postId) => {
+    const ok = await deletePostAction(postId)
+    // O post deixa de existir, então fecha o modal junto.
+    if (ok) setSelectedPost(null)
+    return ok
+  }
+
+  const handlePublish = async (postId) => {
+    const ok = await publishPostAction(postId)
+    // O post sai de DRAFT e muda de coluna — fecha e deixa o quadro atualizado à vista.
+    if (ok) setSelectedPost(null)
+    return ok
+  }
+
+  const handleSchedule = async (postId, scheduledFor) => {
+    const ok = await scheduleDraftAction(postId, scheduledFor)
+    // O backend move o card pra Agendado sozinho — fecha o modal pra ver o quadro atualizado.
+    if (ok) setSelectedPost(null)
+    return ok
+  }
+
+  // `selectedPost` é só o snapshot de qual card foi clicado; o que o modal exibe
+  // vem sempre de `columns`, pra refletir edições sem sincronizar nada à mão.
+  const openPost = selectedPost
+    ? columns.flatMap((c) => c.posts).find((p) => String(p.id) === String(selectedPost.id)) ??
+      selectedPost
+    : null
 
   if (status === 'loading' && columns.length === 0) {
     return (
@@ -220,7 +289,23 @@ function ClientWorkflowTab() {
         onOpenChange={(open) => {
           if (!open) setSelectedPost(null)
         }}
-        post={selectedPost}
+        post={openPost}
+        clientId={clientId}
+        onUpdateCaption={updateCaptionAction}
+        onUpdateMedia={updateDraftMediaAction}
+        onRemoveMedia={removeDraftMediaAction}
+        onChangeScheduleDate={changeScheduleDateAction}
+        onCancelSchedule={handleCancelSchedule}
+        onDeletePost={handleDeletePost}
+        onPublish={handlePublish}
+        onSchedule={handleSchedule}
+        isUpdatingCaption={updatingCaptionPostId === openPost?.id}
+        isUpdatingMedia={updatingMediaPostId === openPost?.id}
+        isChangingScheduleDate={changingScheduleDateId === openPost?.id}
+        isCancellingSchedule={cancellingScheduleId === openPost?.id}
+        isDeletingPost={deletingPostId === openPost?.id}
+        isPublishing={publishingPostId === openPost?.id}
+        isScheduling={schedulingPostId === openPost?.id}
       />
 
       <ConfirmActionSheet

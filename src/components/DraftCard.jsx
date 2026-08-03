@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Loader2, Pencil, Trash2, Send } from 'lucide-react'
+import { ImageOff, Loader2, Pencil, Trash2, Send } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,11 @@ function DraftCard({ draft, isUpdating, isDeleting, isPublishing, onUpdateCaptio
 
   const isBusy = isUpdating || isDeleting || isPublishing
   const accountCount = draft.accounts?.length ?? 0
+  // O "Finalizar Post" (extraAction) manda o rascunho de volta pro fluxo de
+  // publicação principal, que tem seu próprio MediaDropzone pra anexar — aqui
+  // só precisamos impedir publicar direto sem mídia.
+  const thumbnailUrl = getThumbnailUrl(draft)
+  const hasMedia = !!draft.file_path
 
   const startEditingCaption = () => {
     setCaptionDraft(draft.caption ?? '')
@@ -30,11 +35,18 @@ function DraftCard({ draft, isUpdating, isDeleting, isPublishing, onUpdateCaptio
   return (
     <Card>
       <CardContent className="p-3 flex flex-col gap-3">
-        <img
-          src={getThumbnailUrl(draft)}
-          alt={draft.file_name}
-          className="w-full rounded-lg max-h-64 object-cover"
-        />
+        {thumbnailUrl ? (
+          <img
+            src={thumbnailUrl}
+            alt={draft.file_name}
+            className="w-full rounded-lg max-h-64 object-cover"
+          />
+        ) : (
+          <div className="flex h-64 w-full flex-col items-center justify-center gap-2 rounded-lg bg-muted/50 text-muted-foreground">
+            <ImageOff className="h-8 w-8" />
+            <span className="text-sm">Nenhuma mídia anexada</span>
+          </div>
+        )}
 
         {isEditingCaption ? (
           <div className="flex flex-col gap-2">
@@ -106,7 +118,13 @@ function DraftCard({ draft, isUpdating, isDeleting, isPublishing, onUpdateCaptio
             Excluir
           </Button>
           {extraAction}
-          <Button type="button" size="sm" onClick={() => setShowPublishConfirm(true)} disabled={isBusy}>
+          <Button
+            type="button"
+            size="sm"
+            onClick={() => setShowPublishConfirm(true)}
+            disabled={isBusy || !hasMedia}
+            title={!hasMedia ? 'Anexe uma mídia antes de publicar' : undefined}
+          >
             <Send className="h-4 w-4 shrink-0" />
             Publicar
           </Button>
