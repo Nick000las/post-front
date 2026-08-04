@@ -47,8 +47,12 @@ const SelectScrollDownButton = React.forwardRef(({ className, ...props }, ref) =
 SelectScrollDownButton.displayName =
   SelectPrimitive.ScrollDownButton.displayName
 
-const SelectContent = React.forwardRef(({ className, children, position = "popper", ...props }, ref) => (
-  <SelectPrimitive.Portal>
+const SelectContent = React.forwardRef(({ className, children, position = "popper", container, ...props }, ref) => (
+  // container: mesmo motivo do Popover (ver comentário em ui/popover.jsx) — um Select aberto
+  // dentro de um Popover, sem isso, porta pro <body> com z-50 e fica atrás do Popover (z-[60]),
+  // que também porta pro <body>. Passando o nó do PopoverContent como container, o Select vira
+  // descendente real dele em vez de um portal irmão disputando z-index.
+  <SelectPrimitive.Portal container={container}>
     <SelectPrimitive.Content
       ref={ref}
       className={cn(

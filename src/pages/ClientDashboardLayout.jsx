@@ -12,6 +12,7 @@ const TABS = [
   { to: 'rascunhos', label: 'Rascunhos' },
   { to: 'lab-ia', label: 'Lab de IA' },
   { to: 'contas', label: 'Contas Conectadas' },
+  { to: 'feed', label: 'Feed' },
 ]
 
 function ClientDashboardLayout() {

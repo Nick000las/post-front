@@ -1,10 +1,10 @@
-import { Camera, Globe, Briefcase, Music2 } from 'lucide-react'
+import { FaInstagram, FaFacebook, FaLinkedin, FaTiktok } from 'react-icons/fa'
 
 export const PLATFORMS = [
-  { id: 'instagram', name: 'Instagram', icon: Camera,    disabled: false, comingSoon: false },
-  { id: 'facebook',  name: 'Facebook',  icon: Globe,     disabled: false, comingSoon: false },
-  { id: 'linkedin',  name: 'LinkedIn',  icon: Briefcase, disabled: false, comingSoon: false },
-  { id: 'tiktok',    name: 'TikTok',    icon: Music2,    disabled: false, comingSoon: false },
+  { id: 'instagram', name: 'Instagram', icon: FaInstagram, disabled: false, comingSoon: false },
+  { id: 'facebook',  name: 'Facebook',  icon: FaFacebook,  disabled: false, comingSoon: false },
+  { id: 'linkedin',  name: 'LinkedIn',  icon: FaLinkedin,  disabled: false, comingSoon: false },
+  { id: 'tiktok',    name: 'TikTok',    icon: FaTiktok,    disabled: false, comingSoon: false },
 ]
 
 // Metadados do campo "platformAccountId" por plataforma — usados no formulário

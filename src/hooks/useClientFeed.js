@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { getGlobalFeed } from '@/api/feed'
+import { getClientFeed } from '@/api/feed'
 
-export function useFeedManagement() {
+export function useClientFeed(clientId) {
   const [searchParams, setSearchParams] = useSearchParams()
   const [feed, setFeed] = useState([])
   const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 })
@@ -12,17 +12,19 @@ export function useFeedManagement() {
 
   const page = Number(searchParams.get('page')) || 1
   const filters = {
-    status: searchParams.get('status') || 'todos',
-    clientId: searchParams.get('clientId') || '',
-    date: searchParams.get('date') || '',
+    platform: searchParams.get('platform') || '',
+    month: searchParams.get('month') || '',
+    year: searchParams.get('year') || '',
   }
+  // Mês/ano só filtram juntos — mês isolado (ou vice-versa) é ignorado até o par completar.
+  const hasFullPeriod = Boolean(filters.month && filters.year)
 
-  const fetchFeed = useCallback((targetPage, targetFilters) => {
+  const fetchFeed = useCallback((targetClientId, targetPage, targetFilters) => {
     const requestId = ++requestIdRef.current
     setStatus('loading')
     setError(null)
 
-    return getGlobalFeed({ page: targetPage, ...targetFilters })
+    return getClientFeed({ page: targetPage, clientId: targetClientId, ...targetFilters })
       .then((result) => {
         // Ignora respostas de páginas/filtros antigos se o usuário já navegou adiante.
         if (requestId !== requestIdRef.current) return
@@ -32,14 +34,19 @@ export function useFeedManagement() {
       })
       .catch((err) => {
         if (requestId !== requestIdRef.current) return
-        setError(err.message ?? 'Erro ao carregar feed')
+        setError(err.message ?? 'Erro ao carregar feed do cliente')
         setStatus('error')
       })
   }, [])
 
   useEffect(() => {
-    fetchFeed(page, filters)
-  }, [page, filters.status, filters.clientId, filters.date, fetchFeed])
+    if (clientId == null) return
+    fetchFeed(clientId, page, {
+      platform: filters.platform || undefined,
+      month: hasFullPeriod ? filters.month : undefined,
+      year: hasFullPeriod ? filters.year : undefined,
+    })
+  }, [clientId, page, filters.platform, filters.month, filters.year, hasFullPeriod, fetchFeed])
 
   // Qualquer troca de filtro reseta a paginação pra página 1.
   const setFilters = useCallback(
@@ -82,6 +89,11 @@ export function useFeedManagement() {
     setFilters,
     goToNextPage,
     goToPreviousPage,
-    refetch: () => fetchFeed(page, filters),
+    refetch: () =>
+      fetchFeed(clientId, page, {
+        platform: filters.platform || undefined,
+        month: hasFullPeriod ? filters.month : undefined,
+        year: hasFullPeriod ? filters.year : undefined,
+      }),
   }
 }

@@ -17,6 +17,7 @@ import ClientWorkflowTab from '@/pages/client/ClientWorkflowTab'
 import ClientRascunhosTab from '@/pages/client/ClientRascunhosTab'
 import ClientLabIaTab from '@/pages/client/ClientLabIaTab'
 import ClientContasTab from '@/pages/client/ClientContasTab'
+import ClientFeedTab from '@/pages/client/ClientFeedTab'
 import App from './App'
 import './index.css'
 
@@ -52,6 +53,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route path="rascunhos" element={<ClientRascunhosTab />} />
               <Route path="lab-ia" element={<ClientLabIaTab />} />
               <Route path="contas" element={<ClientContasTab />} />
+              <Route path="feed" element={<ClientFeedTab />} />
             </Route>
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

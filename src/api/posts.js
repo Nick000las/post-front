@@ -56,3 +56,11 @@ export async function getPostStatus(postId, clientId) {
   const query = clientId != null ? `?clientId=${encodeURIComponent(clientId)}` : ''
   return request(`/posts/${postId}/status${query}`)
 }
+
+export async function republishPost(postId, clientId) {
+  return request(`/posts/${postId}/republicar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clientId }),
+  })
+}
