@@ -5,7 +5,7 @@ import ClientRail from '@/components/ClientRail'
 function AppLayout() {
   const { pathname } = useLocation()
   // Colapsa a sidebar e mostra a rail apenas dentro do dashboard de um
-  // cliente específico (/clientes/:clientId/...) — a lista geral (/clientes)
+  // cliente específico (/clientes/:clientId/...) — a lista geral (/)
   // continua com o layout normal.
   const isClientDetailArea = /^\/clientes\/[^/]+/.test(pathname)
 

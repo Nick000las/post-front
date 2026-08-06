@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarClock, Loader2, Pencil, Send, Trash2 } from 'lucide-react'
+import { CalendarClock, Loader2, Pencil, Send, Trash2, Video } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,8 +9,11 @@ import ScheduleButton from '@/components/ScheduleButton'
 import DateTimePickerPopover from '@/components/DateTimePickerPopover'
 import DraftMediaEditor from '@/components/DraftMediaEditor'
 import CardCommentsPanel from '@/components/CardCommentsPanel'
+import DraftAccountsSheet from '@/components/DraftAccountsSheet'
 import { PLATFORMS } from '@/lib/platforms'
 import { getMediaUrl } from '@/lib/media'
+import { suggestedDateToLocalMidnight } from '@/lib/suggestedDate'
+import { getFormatBehavior } from '@/lib/postFormat'
 
 const STATUS_LABELS = {
   DRAFT: 'Rascunho',
@@ -40,6 +43,7 @@ function KanbanCardModal({
   onDeletePost,
   onPublish,
   onSchedule,
+  onLinkAccounts,
   isUpdatingCaption,
   isUpdatingMedia,
   isChangingScheduleDate,
@@ -47,6 +51,7 @@ function KanbanCardModal({
   isDeletingPost,
   isPublishing,
   isScheduling,
+  isLinkingAccounts,
 }) {
   const [isEditingCaption, setIsEditingCaption] = useState(false)
   const [captionDraft, setCaptionDraft] = useState('')
@@ -71,6 +76,7 @@ function KanbanCardModal({
   // Idem pra mídia: a lixeira do DraftMediaEditor pode deixar o draft vazio, e
   // publicar/agendar sem arquivo é rejeitado (400) lá atrás.
   const hasMedia = !!post.file_path
+  const formatBehavior = getFormatBehavior(post.format)
 
   const startEditingCaption = () => {
     setCaptionDraft(post.caption ?? '')
@@ -160,6 +166,11 @@ function KanbanCardModal({
                   <Badge variant={getStatusVariant(post.status)}>
                     {STATUS_LABELS[post.status] ?? post.status}
                   </Badge>
+                  {formatBehavior.showStoryComingSoon && (
+                    <Badge variant="secondary" className="text-xs">
+                      Story · Em breve
+                    </Badge>
+                  )}
                   {post.accounts?.map((account) => {
                     // A API do Kanban manda `platform` em maiúsculo, PLATFORMS usa ids minúsculos.
                     const platformMeta = PLATFORMS.find((p) => p.id === account.platform?.toLowerCase())
@@ -170,6 +181,13 @@ function KanbanCardModal({
                     )
                   })}
                 </div>
+
+                {formatBehavior.showReelsWarning && (
+                  <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
+                    <Video className="h-4 w-4 shrink-0" />
+                    Lembre-se de anexar um vídeo vertical.
+                  </div>
+                )}
 
                 {/* Gated em `isScheduled`, não só em `scheduled_for`: um post já
                     publicado carrega a data antiga e não está mais agendado. */}
@@ -199,8 +217,19 @@ function KanbanCardModal({
                     <ScheduleButton
                       disabled={accountCount === 0 || !hasMedia}
                       isScheduling={isScheduling}
+                      // Só pré-seleciona o calendário: o que vai pro backend é a data que o
+                      // usuário confirmar, não a sugestão da IA.
+                      initialDate={suggestedDateToLocalMidnight(post.suggested_date)}
                       onConfirm={(date) => onSchedule(post.id, date.toISOString())}
                       popoverContainer={dialogContentEl}
+                    />
+                  )}
+                  {isDraft && (
+                    <DraftAccountsSheet
+                      post={post}
+                      clientId={clientId}
+                      onSave={(accountIds) => onLinkAccounts(post.id, accountIds)}
+                      isSaving={isLinkingAccounts}
                     />
                   )}
                   {isDraft && accountCount === 0 && (

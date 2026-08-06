@@ -57,6 +57,14 @@ export async function getPostStatus(postId, clientId) {
   return request(`/posts/${postId}/status${query}`)
 }
 
+export async function linkDraftAccounts(postId, clientId, accountIds) {
+  return request(`/draft/${postId}/accounts`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ clientId, accountIds }),
+  })
+}
+
 export async function republishPost(postId, clientId) {
   return request(`/posts/${postId}/republicar`, {
     method: 'POST',

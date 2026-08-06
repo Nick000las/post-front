@@ -35,8 +35,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               </ProtectedRoute>
             }
           >
+            <Route path="/" element={<ClientsPage />} />
             <Route
-              path="/"
+              path="/publicar"
               element={
                 <PublishProvider>
                   <App />
@@ -46,7 +47,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route path="/gerenciar-contas" element={<AccountsManagementPage />} />
             <Route path="/rascunhos" element={<DraftsPage />} />
             <Route path="/feed" element={<FeedPage />} />
-            <Route path="/clientes" element={<ClientsPage />} />
             <Route path="/clientes/:clientId" element={<ClientDashboardLayout />}>
               <Route index element={<Navigate to="rascunhos" replace />} />
               <Route path="workflow" element={<ClientWorkflowTab />} />

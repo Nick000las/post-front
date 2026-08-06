@@ -14,7 +14,7 @@ import {
   publishDraft,
   scheduleDraft,
 } from '@/api/drafts'
-import { cancelSchedule, changeScheduleDate, deletePost } from '@/api/posts'
+import { cancelSchedule, changeScheduleDate, deletePost, linkDraftAccounts } from '@/api/posts'
 
 export function useKanbanManagement(clientId) {
   const [columns, setColumns] = useState([])
@@ -31,6 +31,7 @@ export function useKanbanManagement(clientId) {
   const [deletingPostId, setDeletingPostId] = useState(null)
   const [publishingPostId, setPublishingPostId] = useState(null)
   const [schedulingPostId, setSchedulingPostId] = useState(null)
+  const [linkingAccountsPostId, setLinkingAccountsPostId] = useState(null)
   const statusRef = useRef('idle')
 
   const fetchBoard = useCallback(({ silent = false } = {}) => {
@@ -333,6 +334,22 @@ export function useKanbanManagement(clientId) {
     }
   }, [clientId, fetchBoard])
 
+  const linkAccountsAction = useCallback(async (postId, accountIds) => {
+    setLinkingAccountsPostId(postId)
+    try {
+      await linkDraftAccounts(postId, clientId, accountIds)
+      // O vínculo muda `accounts` do post, que o PUT não devolve — rebusca o quadro.
+      await fetchBoard({ silent: true })
+      toast.success('Contas vinculadas com sucesso!')
+      return true
+    } catch (err) {
+      toast.error('Falha ao vincular contas', { description: err.message })
+      return false
+    } finally {
+      setLinkingAccountsPostId(null)
+    }
+  }, [clientId, fetchBoard])
+
   return {
     columns,
     status,
@@ -348,6 +365,7 @@ export function useKanbanManagement(clientId) {
     deletingPostId,
     publishingPostId,
     schedulingPostId,
+    linkingAccountsPostId,
     addColumn,
     renameColumnAction,
     removeColumn,
@@ -360,6 +378,7 @@ export function useKanbanManagement(clientId) {
     deletePostAction,
     publishPostAction,
     scheduleDraftAction,
+    linkAccountsAction,
     refetch: fetchBoard,
   }
 }

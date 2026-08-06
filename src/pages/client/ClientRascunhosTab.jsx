@@ -21,7 +21,7 @@ function ClientRascunhosTab() {
   } = useDraftsManagement(clientId)
 
   const finalizarPost = (draft) => {
-    navigate('/', { state: { draftId: draft.id, caption: draft.caption, clientId } })
+    navigate('/publicar', { state: { draftId: draft.id, caption: draft.caption, clientId } })
   }
 
   if (status === 'loading') {

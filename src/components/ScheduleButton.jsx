@@ -2,7 +2,7 @@ import { CalendarClock } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import DateTimePickerPopover from '@/components/DateTimePickerPopover'
 
-function ScheduleButton({ disabled, isScheduling, onConfirm, popoverContainer }) {
+function ScheduleButton({ disabled, isScheduling, onConfirm, popoverContainer, initialDate = null }) {
   return (
     <DateTimePickerPopover
       trigger={
@@ -11,6 +11,7 @@ function ScheduleButton({ disabled, isScheduling, onConfirm, popoverContainer })
           Agendar
         </Button>
       }
+      initialDate={initialDate}
       isSubmitting={isScheduling}
       confirmText="Confirmar agendamento"
       loadingLabel="Agendando..."

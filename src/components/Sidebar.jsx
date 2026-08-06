@@ -10,8 +10,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { cn } from '@/lib/utils'
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Publicar Post', icon: Send, end: true },
-  { to: '/clientes', label: 'Clientes', icon: Users, end: false },
+  { to: '/', label: 'Clientes', icon: Users, end: true },
+  { to: '/publicar', label: 'Publicar Post', icon: Send, end: false },
   { to: '/feed', label: 'Feed Global', icon: Rss, end: false },
 ]
 

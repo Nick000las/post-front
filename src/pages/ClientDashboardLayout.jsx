@@ -30,7 +30,7 @@ function ClientDashboardLayout() {
           type="button"
           variant="ghost"
           size="icon"
-          onClick={() => navigate('/clientes')}
+          onClick={() => navigate('/')}
           aria-label="Voltar para clientes"
         >
           <ArrowLeft className="h-5 w-5" />

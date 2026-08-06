@@ -1,10 +1,11 @@
 import { memo } from 'react'
 import { useDraggable } from '@dnd-kit/core'
-import { ImageOff } from 'lucide-react'
+import { CalendarDays, ImageOff } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { PLATFORMS } from '@/lib/platforms'
 import { getThumbnailUrl } from '@/lib/media'
+import { formatSuggestedDate } from '@/lib/suggestedDate'
 
 // Conteúdo visual do card, isolado pra ser reaproveitado pelo DragOverlay sem
 // arrastar junto a lógica de drag (o overlay é um clone estático).
@@ -13,6 +14,8 @@ import { getThumbnailUrl } from '@/lib/media'
 // junto, a cada frame.
 export const KanbanCardContent = memo(function KanbanCardContent({ post }) {
   const thumbnailUrl = getThumbnailUrl(post)
+  // Só informativo (vem do Lab de IA) — não agenda nada, quem agenda é scheduled_for.
+  const suggestedDate = formatSuggestedDate(post.suggested_date)
 
   return (
     <Card>
@@ -40,6 +43,12 @@ export const KanbanCardContent = memo(function KanbanCardContent({ post }) {
 
         <div className="flex flex-wrap gap-1.5">
           <Badge variant="outline">{post.status}</Badge>
+          {suggestedDate && (
+            <Badge variant="outline" className="gap-1 border-dashed text-muted-foreground">
+              <CalendarDays className="h-3 w-3" />
+              Sugestão: {suggestedDate}
+            </Badge>
+          )}
           {post.accounts?.map((account) => {
             // A API do Kanban devolve `platform` em maiúsculo (ex: INSTAGRAM),
             // enquanto PLATFORMS usa ids minúsculos.

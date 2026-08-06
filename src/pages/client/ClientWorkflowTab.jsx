@@ -113,6 +113,7 @@ function ClientWorkflowTab() {
     deletingPostId,
     publishingPostId,
     schedulingPostId,
+    linkingAccountsPostId,
     addColumn,
     removeColumn,
     moveCard,
@@ -124,6 +125,7 @@ function ClientWorkflowTab() {
     deletePostAction,
     publishPostAction,
     scheduleDraftAction,
+    linkAccountsAction,
     refetch,
   } = useKanbanManagement(clientId)
 
@@ -306,6 +308,8 @@ function ClientWorkflowTab() {
         isDeletingPost={deletingPostId === openPost?.id}
         isPublishing={publishingPostId === openPost?.id}
         isScheduling={schedulingPostId === openPost?.id}
+        onLinkAccounts={linkAccountsAction}
+        isLinkingAccounts={linkingAccountsPostId === openPost?.id}
       />
 
       <ConfirmActionSheet
