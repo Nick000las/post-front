@@ -9,7 +9,6 @@ import { cn } from '@/lib/utils'
 
 const TABS = [
   { to: 'workflow', label: 'Workflow' },
-  { to: 'rascunhos', label: 'Rascunhos' },
   { to: 'lab-ia', label: 'Lab de IA' },
   { to: 'contas', label: 'Contas Conectadas' },
   { to: 'feed', label: 'Feed' },
