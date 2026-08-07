@@ -12,8 +12,9 @@ const PublishContext = createContext(null)
 
 export function PublishProvider({ children }) {
   const location = useLocation()
-  const [file, setFile] = useState(null)
-  const [previewUrl, setPreviewUrl] = useState(null)
+  // Um único array — cada item já carrega seu File e seu preview juntos, pra
+  // nunca poder dessincronizar quando um item é removido.
+  const [mediaItems, setMediaItems] = useState([])
   const [caption, setCaption] = useState(() => location.state?.caption ?? '')
   const [selectedClientId, setSelectedClientId] = useState(() => location.state?.clientId ?? null)
   const [selectedPlatforms, setSelectedPlatforms] = useState(new Set(['instagram']))
@@ -40,14 +41,14 @@ export function PublishProvider({ children }) {
     }
   }, [selectedClientId])
 
-  const isVideo = file ? file.type.startsWith('video/') : false
+  const hasVideo = mediaItems.some((item) => item.file.type.startsWith('video/'))
 
   const hasAccountForEverySelectedPlatform = useMemo(
     () => Array.from(selectedPlatforms).every((platformId) => (selectedAccounts[platformId]?.length ?? 0) > 0),
     [selectedPlatforms, selectedAccounts]
   )
 
-  const canPublish = file !== null
+  const canPublish = mediaItems.length > 0
     && selectedClientId !== null
     && selectedPlatforms.size > 0
     && hasAccountForEverySelectedPlatform
@@ -76,22 +77,27 @@ export function PublishProvider({ children }) {
     [accounts, activeDrawerPlatform]
   )
 
-  const handleFileAccepted = useCallback((newFile, url) => {
-    if (newFile.type.startsWith('video/') && newFile.size > VIDEO_SIZE_LIMIT) {
-      URL.revokeObjectURL(url)
-      toast.error('Vídeo muito grande', { description: 'Limite: 300MB' })
-      return
+  // Cada arquivo solto vira um item local (File + preview + key estável) —
+  // nada é enviado à API aqui, é só estado de UI até o submit.
+  const handleFilesAdded = useCallback((newFiles) => {
+    const accepted = []
+    for (const file of newFiles) {
+      if (file.type.startsWith('video/') && file.size > VIDEO_SIZE_LIMIT) {
+        toast.error('Vídeo muito grande', { description: `"${file.name}" excede o limite de 300MB e foi ignorado.` })
+        continue
+      }
+      accepted.push({ key: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) })
     }
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
-    setFile(newFile)
-    setPreviewUrl(url)
-  }, [previewUrl])
+    if (accepted.length > 0) setMediaItems((prev) => [...prev, ...accepted])
+  }, [])
 
-  const handleClear = useCallback(() => {
-    if (previewUrl) URL.revokeObjectURL(previewUrl)
-    setFile(null)
-    setPreviewUrl(null)
-  }, [previewUrl])
+  const handleRemoveFile = useCallback((key) => {
+    setMediaItems((prev) => {
+      const item = prev.find((m) => m.key === key)
+      if (item) URL.revokeObjectURL(item.previewUrl)
+      return prev.filter((m) => m.key !== key)
+    })
+  }, [])
 
   const handlePlatformToggle = useCallback((id) => {
     const wasChecked = selectedPlatforms.has(id)
@@ -155,14 +161,21 @@ export function PublishProvider({ children }) {
     }
   }, [activeDrawerPlatform, selectedAccounts])
 
+  // Revoga todos os object URLs pendentes e zera o array — chamado nos 3
+  // fluxos de submit bem-sucedido, pra não repetir o loop de revoke 3x.
+  const resetMedia = () => {
+    for (const item of mediaItems) URL.revokeObjectURL(item.previewUrl)
+    setMediaItems([])
+  }
+
   const handlePublish = async () => {
-    if (!file || selectedPlatforms.size === 0) return false
+    if (mediaItems.length === 0 || selectedPlatforms.size === 0) return false
     const accountIds = Object.values(selectedAccounts).flat()
     if (accountIds.length === 0) return false
 
     setIsPublishing(true)
     try {
-      const data = await publishPost(file, caption, accountIds, selectedClientId)
+      const data = await publishPost(mediaItems.map((m) => m.file), caption, accountIds, selectedClientId)
       // A publicação é assíncrona (fila): o 202 só confirma que os jobs foram
       // enfileirados, não o resultado por conta — isso só existe depois, via
       // GET /posts/:id/status ou no Feed.
@@ -172,9 +185,7 @@ export function PublishProvider({ children }) {
       })
 
       // selectedAccounts nunca é limpo aqui — mesmo comportamento de hoje.
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
-      setFile(null)
-      setPreviewUrl(null)
+      resetMedia()
       setCaption('')
       setSelectedPlatforms(new Set(['instagram']))
       return true
@@ -194,18 +205,16 @@ export function PublishProvider({ children }) {
   }
 
   const handleSaveDraft = async () => {
-    if (!file || selectedPlatforms.size === 0) return false
+    if (mediaItems.length === 0 || selectedPlatforms.size === 0) return false
     const accountIds = Object.values(selectedAccounts).flat()
     if (accountIds.length === 0) return false
 
     setIsSavingDraft(true)
     try {
-      await saveDraft(file, caption, accountIds, selectedClientId)
+      await saveDraft(mediaItems.map((m) => m.file), caption, accountIds, selectedClientId)
       toast.success('Rascunho salvo com sucesso')
 
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
-      setFile(null)
-      setPreviewUrl(null)
+      resetMedia()
       setCaption('')
       setSelectedPlatforms(new Set(['instagram']))
       setSelectedAccounts({})
@@ -226,7 +235,7 @@ export function PublishProvider({ children }) {
   }
 
   const handleSchedule = async (date) => {
-    if (!file || selectedClientId === null || selectedPlatforms.size === 0) return false
+    if (mediaItems.length === 0 || selectedClientId === null || selectedPlatforms.size === 0) return false
     const accountIds = Object.values(selectedAccounts).flat()
     if (accountIds.length === 0) return false
 
@@ -238,15 +247,13 @@ export function PublishProvider({ children }) {
     setIsScheduling(true)
     try {
       // toISOString() sempre inclui o offset (Z/UTC), exigido pelo backend.
-      const data = await schedulePost(file, caption, accountIds, selectedClientId, date.toISOString())
+      const data = await schedulePost(mediaItems.map((m) => m.file), caption, accountIds, selectedClientId, date.toISOString())
       const total = data.detalhes?.totalContas ?? accountIds.length
       toast.success(data.message ?? 'Post agendado com sucesso!', {
         description: `Agendado para ${date.toLocaleString('pt-BR')} · ${total} conta(s).`,
       })
 
-      if (previewUrl) URL.revokeObjectURL(previewUrl)
-      setFile(null)
-      setPreviewUrl(null)
+      resetMedia()
       setCaption('')
       setSelectedPlatforms(new Set(['instagram']))
       setSelectedAccounts({})
@@ -267,8 +274,7 @@ export function PublishProvider({ children }) {
   // O value não usa useMemo: irrelevante para performance com poucos componentes numa
   // única tela. Não introduzir memoização/seletores sem um problema real de re-render.
   const value = {
-    file,
-    previewUrl,
+    mediaItems,
     caption,
     setCaption,
     selectedClientId,
@@ -283,13 +289,13 @@ export function PublishProvider({ children }) {
     activeDrawerPlatform,
     accountsStatus,
     accountsError,
-    isVideo,
+    hasVideo,
     canPublish,
     accountLabels,
     activeDrawerPlatformMeta,
     activeDrawerAccounts,
-    handleFileAccepted,
-    handleClear,
+    handleFilesAdded,
+    handleRemoveFile,
     handlePlatformToggle,
     handleOpenAccountDrawer,
     handleDrawerOpenChange,

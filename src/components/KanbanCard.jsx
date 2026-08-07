@@ -1,10 +1,10 @@
 import { memo } from 'react'
 import { useDraggable } from '@dnd-kit/core'
-import { CalendarDays, ImageOff } from 'lucide-react'
+import { CalendarDays } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import MediaCarousel from '@/components/MediaCarousel'
 import { PLATFORMS } from '@/lib/platforms'
-import { getThumbnailUrl } from '@/lib/media'
 import { formatSuggestedDate } from '@/lib/suggestedDate'
 
 // Conteúdo visual do card, isolado pra ser reaproveitado pelo DragOverlay sem
@@ -13,29 +13,18 @@ import { formatSuggestedDate } from '@/lib/suggestedDate'
 // e re-renderiza a coluna inteira — sem isso, todos os cards seriam redesenhados
 // junto, a cada frame.
 export const KanbanCardContent = memo(function KanbanCardContent({ post }) {
-  const thumbnailUrl = getThumbnailUrl(post)
   // Só informativo (vem do Lab de IA) — não agenda nada, quem agenda é scheduled_for.
   const suggestedDate = formatSuggestedDate(post.suggested_date)
 
   return (
     <Card>
       <CardContent className="p-2 flex flex-col gap-2">
-        {/* Thumbnail é sempre .jpg (mesmo pra posts de vídeo) — não precisa do
-            branch vídeo/imagem aqui, só nas telas de detalhe com o original.
-            thumbnailUrl é null pra um draft sem mídia (removida ou nunca anexada). */}
-        {thumbnailUrl ? (
-          <img
-            src={thumbnailUrl}
-            alt={post.file_name}
-            draggable={false}
-            className="w-full rounded-md max-h-28 object-cover pointer-events-none"
-          />
-        ) : (
-          <div className="flex h-28 w-full flex-col items-center justify-center gap-1 rounded-md bg-muted/50 text-muted-foreground">
-            <ImageOff className="h-5 w-5" />
-            <span className="text-xs">Sem mídia</span>
-          </div>
-        )}
+        <MediaCarousel
+          media={post.media ?? []}
+          variant="cover"
+          emptyLabel="Sem mídia"
+          className="w-full rounded-md max-h-28 object-cover"
+        />
 
         <p className="text-sm text-foreground line-clamp-2">
           {post.caption?.trim() ? post.caption : <span className="text-muted-foreground">Sem legenda</span>}

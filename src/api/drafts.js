@@ -20,16 +20,17 @@ export async function updateDraftCaption(id, caption, clientId) {
   })
 }
 
-export async function updateDraftMedia(id, clientId, file) {
+// Substitui TODA a mídia do draft — não é aditivo.
+export async function updateDraftMedia(id, clientId, files) {
   const fd = new FormData()
-  fd.append('arquivo', file)
+  for (const file of files) fd.append('arquivo', file)
   fd.append('clientId', clientId)
   return request(`/draft/${id}/media`, { method: 'PUT', body: fd })
 }
 
-export async function removeDraftMedia(id, clientId) {
+export async function removeDraftMediaItem(id, mediaId, clientId) {
   const query = clientId != null ? `?clientId=${encodeURIComponent(clientId)}` : ''
-  return request(`/draft/${id}/media${query}`, { method: 'DELETE' })
+  return request(`/draft/${id}/media/${mediaId}${query}`, { method: 'DELETE' })
 }
 
 export async function deleteDraft(id, clientId) {

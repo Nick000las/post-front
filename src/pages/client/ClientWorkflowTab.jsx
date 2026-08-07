@@ -108,6 +108,7 @@ function ClientWorkflowTab() {
     deletingColumnId,
     updatingCaptionPostId,
     updatingMediaPostId,
+    removingMediaId,
     cancellingScheduleId,
     changingScheduleDateId,
     deletingPostId,
@@ -119,7 +120,7 @@ function ClientWorkflowTab() {
     moveCard,
     updateCaptionAction,
     updateDraftMediaAction,
-    removeDraftMediaAction,
+    removeDraftMediaItemAction,
     changeScheduleDateAction,
     cancelScheduleAction,
     deletePostAction,
@@ -294,8 +295,8 @@ function ClientWorkflowTab() {
         post={openPost}
         clientId={clientId}
         onUpdateCaption={updateCaptionAction}
-        onUpdateMedia={updateDraftMediaAction}
-        onRemoveMedia={removeDraftMediaAction}
+        onReplaceMedia={updateDraftMediaAction}
+        onRemoveMediaItem={removeDraftMediaItemAction}
         onChangeScheduleDate={changeScheduleDateAction}
         onCancelSchedule={handleCancelSchedule}
         onDeletePost={handleDeletePost}
@@ -303,6 +304,7 @@ function ClientWorkflowTab() {
         onSchedule={handleSchedule}
         isUpdatingCaption={updatingCaptionPostId === openPost?.id}
         isUpdatingMedia={updatingMediaPostId === openPost?.id}
+        removingMediaId={removingMediaId}
         isChangingScheduleDate={changingScheduleDateId === openPost?.id}
         isCancellingSchedule={cancellingScheduleId === openPost?.id}
         isDeletingPost={deletingPostId === openPost?.id}

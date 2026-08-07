@@ -8,10 +8,10 @@ import ConfirmActionSheet from '@/components/ConfirmActionSheet'
 import ScheduleButton from '@/components/ScheduleButton'
 import DateTimePickerPopover from '@/components/DateTimePickerPopover'
 import DraftMediaEditor from '@/components/DraftMediaEditor'
+import MediaCarousel from '@/components/MediaCarousel'
 import CardCommentsPanel from '@/components/CardCommentsPanel'
 import DraftAccountsSheet from '@/components/DraftAccountsSheet'
 import { PLATFORMS } from '@/lib/platforms'
-import { getMediaUrl } from '@/lib/media'
 import { suggestedDateToLocalMidnight } from '@/lib/suggestedDate'
 import { getFormatBehavior } from '@/lib/postFormat'
 
@@ -36,8 +36,8 @@ function KanbanCardModal({
   post,
   clientId,
   onUpdateCaption,
-  onUpdateMedia,
-  onRemoveMedia,
+  onReplaceMedia,
+  onRemoveMediaItem,
   onChangeScheduleDate,
   onCancelSchedule,
   onDeletePost,
@@ -46,6 +46,7 @@ function KanbanCardModal({
   onLinkAccounts,
   isUpdatingCaption,
   isUpdatingMedia,
+  removingMediaId,
   isChangingScheduleDate,
   isCancellingSchedule,
   isDeletingPost,
@@ -64,8 +65,6 @@ function KanbanCardModal({
 
   if (!post) return null
 
-  const isVideo = post.file_type?.startsWith('video/')
-  const mediaUrl = getMediaUrl(post)
   // Os dois modos do popup. Rascunho é o único status editável (o backend
   // recusa edição de legenda em qualquer outro); agendado abre em modo
   // protegido, só com alterar data / cancelar / excluir.
@@ -73,9 +72,9 @@ function KanbanCardModal({
   const isScheduled = post.status === 'SCHEDULED'
   // O backend recusa publicar um post sem contas vinculadas — avisa antes.
   const accountCount = post.accounts?.length ?? 0
-  // Idem pra mídia: a lixeira do DraftMediaEditor pode deixar o draft vazio, e
+  // Idem pra mídia: excluir o último item pode deixar o draft vazio, e
   // publicar/agendar sem arquivo é rejeitado (400) lá atrás.
-  const hasMedia = !!post.file_path
+  const hasMedia = (post.media?.length ?? 0) > 0
   const formatBehavior = getFormatBehavior(post.format)
 
   const startEditingCaption = () => {
@@ -107,14 +106,13 @@ function KanbanCardModal({
                 {isDraft ? (
                   <DraftMediaEditor
                     post={post}
-                    onReplace={(file) => onUpdateMedia(post.id, file)}
-                    onRemove={() => onRemoveMedia(post.id)}
-                    isUpdating={isUpdatingMedia}
+                    onReplaceAll={(files) => onReplaceMedia(post.id, files)}
+                    onRemoveItem={(mediaId) => onRemoveMediaItem(post.id, mediaId)}
+                    isReplacing={isUpdatingMedia}
+                    removingMediaId={removingMediaId}
                   />
-                ) : isVideo ? (
-                  <video src={mediaUrl} controls className="w-full rounded-lg max-h-80 object-cover bg-black" />
                 ) : (
-                  <img src={mediaUrl} alt={post.file_name} className="w-full rounded-lg max-h-80 object-cover" />
+                  <MediaCarousel media={post.media ?? []} variant="detail" className="w-full max-h-80 object-cover" />
                 )}
               </div>
 

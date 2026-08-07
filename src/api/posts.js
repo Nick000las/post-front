@@ -1,8 +1,10 @@
 import { request } from './client'
 
-export async function publishPost(file, caption, accountIds, clientId) {
+// files: array de File, na ordem em que foram soltos — a posição no array
+// vira `order` do carrossel no backend (1 arquivo é só o caso comum de N=1).
+export async function publishPost(files, caption, accountIds, clientId) {
   const fd = new FormData()
-  fd.append('arquivo', file)
+  for (const file of files) fd.append('arquivo', file)
   fd.append('caption', caption)
   fd.append('clientId', clientId)
   fd.append('accounts', JSON.stringify(accountIds.map((id) => ({ id }))))
@@ -10,9 +12,9 @@ export async function publishPost(file, caption, accountIds, clientId) {
   return request('/upload/lote', { method: 'POST', body: fd })
 }
 
-export async function saveDraft(file, caption, accountIds, clientId) {
+export async function saveDraft(files, caption, accountIds, clientId) {
   const fd = new FormData()
-  fd.append('arquivo', file)
+  for (const file of files) fd.append('arquivo', file)
   fd.append('caption', caption)
   fd.append('clientId', clientId)
   fd.append('accounts', JSON.stringify(accountIds.map((id) => ({ id }))))
@@ -20,9 +22,9 @@ export async function saveDraft(file, caption, accountIds, clientId) {
   return request('/upload/draft', { method: 'POST', body: fd })
 }
 
-export async function schedulePost(file, caption, accountIds, clientId, scheduledFor) {
+export async function schedulePost(files, caption, accountIds, clientId, scheduledFor) {
   const fd = new FormData()
-  fd.append('arquivo', file)
+  for (const file of files) fd.append('arquivo', file)
   fd.append('caption', caption)
   fd.append('clientId', clientId)
   fd.append('scheduled_for', scheduledFor)

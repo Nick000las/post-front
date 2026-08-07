@@ -10,7 +10,7 @@ import {
 import {
   updateDraftCaption,
   updateDraftMedia,
-  removeDraftMedia,
+  removeDraftMediaItem,
   publishDraft,
   scheduleDraft,
 } from '@/api/drafts'
@@ -26,6 +26,7 @@ export function useKanbanManagement(clientId) {
   const [movingPostId, setMovingPostId] = useState(null)
   const [updatingCaptionPostId, setUpdatingCaptionPostId] = useState(null)
   const [updatingMediaPostId, setUpdatingMediaPostId] = useState(null)
+  const [removingMediaId, setRemovingMediaId] = useState(null)
   const [cancellingScheduleId, setCancellingScheduleId] = useState(null)
   const [changingScheduleDateId, setChangingScheduleDateId] = useState(null)
   const [deletingPostId, setDeletingPostId] = useState(null)
@@ -185,18 +186,17 @@ export function useKanbanManagement(clientId) {
     }
   }, [clientId])
 
-  const updateDraftMediaAction = useCallback(async (postId, file) => {
+  const updateDraftMediaAction = useCallback(async (postId, files) => {
     setUpdatingMediaPostId(postId)
     try {
-      const data = await updateDraftMedia(postId, clientId, file)
-      // Patch só dos campos de mídia: a resposta (POST_SELECT_BASE no backend)
-      // não traz `accounts`, então um spread do draft inteiro apagaria isso.
-      const { file_path, file_name, file_type, thumbnail_path } = data.draft
+      const data = await updateDraftMedia(postId, clientId, files)
+      // Patch só de `media`: a resposta (POST_SELECT_BASE no backend) não traz
+      // `accounts`, então um spread do draft inteiro apagaria isso.
       setColumns((prev) =>
         prev.map((c) => ({
           ...c,
           posts: c.posts.map((p) =>
-            String(p.id) === String(postId) ? { ...p, file_path, file_name, file_type, thumbnail_path } : p
+            String(p.id) === String(postId) ? { ...p, media: data.draft.media } : p
           ),
         }))
       )
@@ -210,16 +210,15 @@ export function useKanbanManagement(clientId) {
     }
   }, [clientId])
 
-  const removeDraftMediaAction = useCallback(async (postId) => {
-    setUpdatingMediaPostId(postId)
+  const removeDraftMediaItemAction = useCallback(async (postId, mediaId) => {
+    setRemovingMediaId(mediaId)
     try {
-      const data = await removeDraftMedia(postId, clientId)
-      const { file_path, file_name, file_type, thumbnail_path } = data.draft
+      const data = await removeDraftMediaItem(postId, mediaId, clientId)
       setColumns((prev) =>
         prev.map((c) => ({
           ...c,
           posts: c.posts.map((p) =>
-            String(p.id) === String(postId) ? { ...p, file_path, file_name, file_type, thumbnail_path } : p
+            String(p.id) === String(postId) ? { ...p, media: data.draft.media } : p
           ),
         }))
       )
@@ -229,7 +228,7 @@ export function useKanbanManagement(clientId) {
       toast.error('Falha ao remover mídia', { description: err.message })
       return false
     } finally {
-      setUpdatingMediaPostId(null)
+      setRemovingMediaId(null)
     }
   }, [clientId])
 
@@ -360,6 +359,7 @@ export function useKanbanManagement(clientId) {
     movingPostId,
     updatingCaptionPostId,
     updatingMediaPostId,
+    removingMediaId,
     cancellingScheduleId,
     changingScheduleDateId,
     deletingPostId,
@@ -372,7 +372,7 @@ export function useKanbanManagement(clientId) {
     moveCard,
     updateCaptionAction,
     updateDraftMediaAction,
-    removeDraftMediaAction,
+    removeDraftMediaItemAction,
     changeScheduleDateAction,
     cancelScheduleAction,
     deletePostAction,

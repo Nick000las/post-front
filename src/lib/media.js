@@ -1,18 +1,13 @@
 const baseUrl = import.meta.env.VITE_API_URL ?? ''
 
-// file_path é nullable: um draft pode ficar sem mídia (removida no editor do
-// Kanban, ou nunca anexada). null é estado normal, não erro — quem chama trata.
-export function getMediaUrl(post) {
-  if (!post.file_path) return null
-  return `${baseUrl}/uploads/${post.file_path}`
-}
-
-// thumbnail_path também é nullable (posts criados antes dessa feature, ou
-// geração que falhou silenciosamente no backend) — nesses casos cai no
-// arquivo original, que por sua vez cai em null se o post não tiver mídia.
-export function getThumbnailUrl(post) {
-  if (post.thumbnail_path) return `${baseUrl}/uploads/thumbs/${post.thumbnail_path}`
-  return getMediaUrl(post)
+// item é um elemento de post.media[] (ou draft.media[]), nunca o post inteiro —
+// media pode ser [] (draft sem mídia ainda), então item também pode ser undefined.
+// thumb: true busca a miniatura (subpasta thumbs/); se thumbnail_path for nulo
+// (geração falhou no backend, ou mídia antiga), cai pro arquivo original.
+export function getMediaUrl(item, { thumb = false } = {}) {
+  if (!item?.file_path) return null
+  if (thumb && item.thumbnail_path) return `${baseUrl}/uploads/thumbs/${item.thumbnail_path}`
+  return `${baseUrl}/uploads/${item.file_path}`
 }
 
 // Sem fallback: os campos de anexo são tudo-ou-nada, então só chamamos isso

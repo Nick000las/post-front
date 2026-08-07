@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { ImageOff, Loader2, Pencil, Trash2, Send } from 'lucide-react'
+import { Loader2, Pencil, Trash2, Send } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import ConfirmActionSheet from '@/components/ConfirmActionSheet'
+import MediaCarousel from '@/components/MediaCarousel'
 import { PLATFORMS } from '@/lib/platforms'
-import { getThumbnailUrl } from '@/lib/media'
 
 function DraftCard({ draft, isUpdating, isDeleting, isPublishing, onUpdateCaption, onDelete, onPublish, extraAction }) {
   const [isEditingCaption, setIsEditingCaption] = useState(false)
@@ -19,8 +19,7 @@ function DraftCard({ draft, isUpdating, isDeleting, isPublishing, onUpdateCaptio
   // O "Finalizar Post" (extraAction) manda o rascunho de volta pro fluxo de
   // publicação principal, que tem seu próprio MediaDropzone pra anexar — aqui
   // só precisamos impedir publicar direto sem mídia.
-  const thumbnailUrl = getThumbnailUrl(draft)
-  const hasMedia = !!draft.file_path
+  const hasMedia = (draft.media?.length ?? 0) > 0
 
   const startEditingCaption = () => {
     setCaptionDraft(draft.caption ?? '')
@@ -35,18 +34,12 @@ function DraftCard({ draft, isUpdating, isDeleting, isPublishing, onUpdateCaptio
   return (
     <Card>
       <CardContent className="p-3 flex flex-col gap-3">
-        {thumbnailUrl ? (
-          <img
-            src={thumbnailUrl}
-            alt={draft.file_name}
-            className="w-full rounded-lg max-h-64 object-cover"
-          />
-        ) : (
-          <div className="flex h-64 w-full flex-col items-center justify-center gap-2 rounded-lg bg-muted/50 text-muted-foreground">
-            <ImageOff className="h-8 w-8" />
-            <span className="text-sm">Nenhuma mídia anexada</span>
-          </div>
-        )}
+        <MediaCarousel
+          media={draft.media ?? []}
+          variant="cover"
+          emptyLabel="Nenhuma mídia anexada"
+          className="w-full rounded-lg max-h-64 object-cover"
+        />
 
         {isEditingCaption ? (
           <div className="flex flex-col gap-2">

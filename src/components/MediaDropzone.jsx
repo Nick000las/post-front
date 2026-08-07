@@ -1,6 +1,6 @@
 import { useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { UploadCloud, Trash2 } from 'lucide-react'
+import { Plus, UploadCloud, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const ACCEPTED_TYPES = {
@@ -10,25 +10,24 @@ const ACCEPTED_TYPES = {
   'video/quicktime': [],
 }
 
-function MediaDropzone({ file, previewUrl, onFileAccepted, onClear }) {
+// items: [{ key, file, previewUrl }] — estado 100% local até o envio (ver
+// PublishContext.handleFilesAdded/handleRemoveFile). A posição no array vira
+// `order` do carrossel no backend, por isso o badge numerado usa o índice
+// atual, não algo salvo em cada item.
+function MediaDropzone({ items, onFilesAdded, onRemoveItem }) {
   const onDrop = useCallback((acceptedFiles) => {
-    if (acceptedFiles.length === 0) return
-    const newFile = acceptedFiles[0]
-    const url = URL.createObjectURL(newFile)
-    onFileAccepted(newFile, url)
-  }, [onFileAccepted])
+    if (acceptedFiles.length > 0) onFilesAdded(acceptedFiles)
+  }, [onFilesAdded])
 
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     accept: ACCEPTED_TYPES,
-    multiple: false,
-    noClick: !!file,
+    multiple: true,
+    noClick: items.length > 0,
   })
 
-  const isVideo = file ? file.type.startsWith('video/') : false
-
-  return (
-    <div className="relative">
+  if (items.length === 0) {
+    return (
       <div
         {...getRootProps()}
         className={cn(
@@ -36,49 +35,63 @@ function MediaDropzone({ file, previewUrl, onFileAccepted, onClear }) {
           'min-h-[280px] cursor-pointer',
           isDragActive
             ? 'border-primary bg-primary/5'
-            : 'border-border bg-muted/30 hover:border-primary/50 hover:bg-muted/50',
-          file && 'border-solid border-border cursor-default'
+            : 'border-border bg-muted/30 hover:border-primary/50 hover:bg-muted/50'
         )}
       >
         <input {...getInputProps()} />
-
-        {previewUrl && isVideo ? (
-          <video
-            src={previewUrl}
-            controls
-            className="absolute inset-0 w-full h-full object-contain rounded-xl bg-black"
-          />
-        ) : previewUrl ? (
-          <img
-            src={previewUrl}
-            alt="Preview da imagem selecionada"
-            className="absolute inset-0 w-full h-full object-cover rounded-xl"
-          />
-        ) : (
-          <div className="flex flex-col items-center gap-3 px-6 py-8 text-center pointer-events-none">
-            <UploadCloud className="h-10 w-10 text-muted-foreground" />
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                {isDragActive ? 'Solte o arquivo aqui' : 'Arraste uma imagem ou vídeo, ou clique para selecionar'}
-              </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                JPG, PNG · MP4, MOV (máx. 300MB)
-              </p>
-            </div>
+        <div className="flex flex-col items-center gap-3 px-6 py-8 text-center pointer-events-none">
+          <UploadCloud className="h-10 w-10 text-muted-foreground" />
+          <div>
+            <p className="text-sm font-medium text-foreground">
+              {isDragActive ? 'Solte os arquivos aqui' : 'Arraste imagens ou vídeos, ou clique para selecionar'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              JPG, PNG · MP4, MOV (máx. 300MB) · Solte mais de um arquivo para criar um carrossel
+            </p>
           </div>
-        )}
+        </div>
       </div>
+    )
+  }
 
-      {file && (
+  return (
+    <div {...getRootProps()} className="relative">
+      <input {...getInputProps()} />
+      <div className="grid grid-cols-3 gap-2">
+        {items.map((item, index) => {
+          const isVideo = item.file.type.startsWith('video/')
+          return (
+            <div key={item.key} className="relative aspect-square overflow-hidden rounded-lg border">
+              {isVideo ? (
+                <video src={item.previewUrl} className="h-full w-full object-cover" />
+              ) : (
+                <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
+              )}
+              <span className="absolute top-1.5 left-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-xs font-medium text-white">
+                {index + 1}
+              </span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onRemoveItem(item.key) }}
+                className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                aria-label="Remover arquivo"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )
+        })}
+
         <button
           type="button"
-          onClick={(e) => { e.stopPropagation(); onClear() }}
-          className="absolute top-2 right-2 z-10 flex items-center justify-center h-8 w-8 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
-          aria-label="Remover arquivo"
+          onClick={open}
+          className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+          aria-label="Adicionar mais arquivos"
         >
-          <Trash2 className="h-4 w-4" />
+          <Plus className="h-5 w-5" />
+          <span className="text-xs">Adicionar</span>
         </button>
-      )}
+      </div>
     </div>
   )
 }

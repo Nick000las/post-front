@@ -12,8 +12,7 @@ import { usePublishContext } from '@/contexts/PublishContext'
 
 function App() {
   const {
-    file,
-    previewUrl,
+    mediaItems,
     caption,
     setCaption,
     selectedClientId,
@@ -28,13 +27,13 @@ function App() {
     activeDrawerPlatform,
     accountsStatus,
     accountsError,
-    isVideo,
+    hasVideo,
     canPublish,
     accountLabels,
     activeDrawerPlatformMeta,
     activeDrawerAccounts,
-    handleFileAccepted,
-    handleClear,
+    handleFilesAdded,
+    handleRemoveFile,
     handlePlatformToggle,
     handleOpenAccountDrawer,
     handleDrawerOpenChange,
@@ -74,10 +73,9 @@ function App() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="flex flex-col gap-4">
             <MediaDropzone
-              file={file}
-              previewUrl={previewUrl}
-              onFileAccepted={handleFileAccepted}
-              onClear={handleClear}
+              items={mediaItems}
+              onFilesAdded={handleFilesAdded}
+              onRemoveItem={handleRemoveFile}
             />
             <CaptionField value={caption} onChange={setCaption} />
           </div>
@@ -109,7 +107,7 @@ function App() {
               <PublishButton
                 canPublish={canPublish}
                 isPublishing={isPublishing}
-                isVideo={isVideo}
+                hasVideo={hasVideo}
                 onClick={() => setShowPublishConfirm(true)}
               />
             </div>
@@ -135,7 +133,7 @@ function App() {
         title="Confirmar publicação"
         description="Revise os detalhes antes de publicar."
         confirmText="Confirmar publicação"
-        loadingText={isVideo ? 'Publicando vídeo, isso pode levar alguns minutos...' : 'Publicando...'}
+        loadingText={hasVideo ? 'Publicando vídeo, isso pode levar alguns minutos...' : 'Publicando...'}
         isLoading={isPublishing}
         onConfirm={handlePublish}
       >
@@ -152,7 +150,7 @@ function App() {
             <span className="font-medium">Contas selecionadas: </span>
             {accountCount}
           </p>
-          {isVideo && (
+          {hasVideo && (
             <p className="text-xs text-muted-foreground">
               Vídeos podem levar alguns minutos para publicar.
             </p>

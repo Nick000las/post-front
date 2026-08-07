@@ -1,8 +1,8 @@
 import { Loader2, Send } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
-function PublishButton({ canPublish, isPublishing, isVideo, onClick }) {
-  const loadingText = isVideo
+function PublishButton({ canPublish, isPublishing, hasVideo, onClick }) {
+  const loadingText = hasVideo
     ? 'Publicando vídeo, isso pode levar alguns minutos...'
     : 'Publicando...'
 

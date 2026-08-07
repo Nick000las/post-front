@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import ClientAvatar from '@/components/ClientAvatar'
-import { getThumbnailUrl } from '@/lib/media'
+import MediaCarousel from '@/components/MediaCarousel'
 import { canRepublish, statusBadgeVariant } from '@/lib/feedStatus'
 import { PLATFORMS } from '@/lib/platforms'
 
@@ -11,9 +11,10 @@ function FeedPostCard({ post, showAuthor = true, onRepublish, isRepublishing = f
   return (
     <Card>
       <CardContent className="p-3 flex flex-col gap-3">
-        <img
-          src={getThumbnailUrl(post)}
-          alt={post.file_name}
+        <MediaCarousel
+          media={post.media ?? []}
+          variant="cover"
+          emptyLabel="Sem mídia"
           className="w-full rounded-lg max-h-64 object-cover"
         />
 
