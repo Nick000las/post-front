@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import MediaDropzone from './components/MediaDropzone'
 import CaptionField from './components/CaptionField'
 import PlatformSelector from './components/PlatformSelector'
@@ -8,7 +9,9 @@ import ScheduleButton from './components/ScheduleButton'
 import PublishAsClientSelect from './components/PublishAsClientSelect'
 import ConfirmActionSheet from './components/ConfirmActionSheet'
 import AccountDrawer from './components/AccountDrawer'
+import WarningBanner from './components/WarningBanner'
 import { usePublishContext } from '@/contexts/PublishContext'
+import { formatCarouselVideoConflictMessage } from '@/lib/platformCompat'
 
 function App() {
   const {
@@ -29,6 +32,7 @@ function App() {
     accountsError,
     hasVideo,
     canPublish,
+    carouselVideoConflicts,
     accountLabels,
     activeDrawerPlatformMeta,
     activeDrawerAccounts,
@@ -92,6 +96,11 @@ function App() {
               <p className="text-sm text-muted-foreground">
                 Selecione um cliente para escolher as contas e publicar.
               </p>
+            )}
+            {carouselVideoConflicts.length > 0 && (
+              <WarningBanner icon={AlertTriangle}>
+                {formatCarouselVideoConflictMessage(carouselVideoConflicts)}
+              </WarningBanner>
             )}
             <div className="flex flex-wrap gap-2">
               <SaveDraftButton

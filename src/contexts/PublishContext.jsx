@@ -7,6 +7,7 @@ import { publishPost, saveDraft, schedulePost } from '@/api/posts'
 import { useAuth } from '@/contexts/AuthContext'
 import { PLATFORMS } from '@/lib/platforms'
 import { VIDEO_SIZE_LIMIT } from '@/lib/constants'
+import { getCarouselVideoConflicts } from '@/lib/platformCompat'
 
 const PublishContext = createContext(null)
 
@@ -48,10 +49,20 @@ export function PublishProvider({ children }) {
     [selectedPlatforms, selectedAccounts]
   )
 
+  const carouselVideoConflicts = useMemo(
+    () => getCarouselVideoConflicts({
+      mediaCount: mediaItems.length,
+      hasVideo,
+      platformIds: Array.from(selectedPlatforms),
+    }),
+    [mediaItems.length, hasVideo, selectedPlatforms]
+  )
+
   const canPublish = mediaItems.length > 0
     && selectedClientId !== null
     && selectedPlatforms.size > 0
     && hasAccountForEverySelectedPlatform
+    && carouselVideoConflicts.length === 0
     && !isPublishing
     && !isSavingDraft
     && !isScheduling
@@ -291,6 +302,7 @@ export function PublishProvider({ children }) {
     accountsError,
     hasVideo,
     canPublish,
+    carouselVideoConflicts,
     accountLabels,
     activeDrawerPlatformMeta,
     activeDrawerAccounts,

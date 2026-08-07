@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { CalendarClock, Loader2, Pencil, Send, Trash2, Video } from 'lucide-react'
+import { AlertTriangle, CalendarClock, Loader2, Pencil, Send, Trash2, Video } from 'lucide-react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -9,11 +9,13 @@ import ScheduleButton from '@/components/ScheduleButton'
 import DateTimePickerPopover from '@/components/DateTimePickerPopover'
 import DraftMediaEditor from '@/components/DraftMediaEditor'
 import MediaCarousel from '@/components/MediaCarousel'
+import WarningBanner from '@/components/WarningBanner'
 import CardCommentsPanel from '@/components/CardCommentsPanel'
 import DraftAccountsSheet from '@/components/DraftAccountsSheet'
 import { PLATFORMS } from '@/lib/platforms'
 import { suggestedDateToLocalMidnight } from '@/lib/suggestedDate'
 import { getFormatBehavior } from '@/lib/postFormat'
+import { getCarouselVideoConflicts, formatCarouselVideoConflictMessage } from '@/lib/platformCompat'
 
 const STATUS_LABELS = {
   DRAFT: 'Rascunho',
@@ -76,6 +78,12 @@ function KanbanCardModal({
   // publicar/agendar sem arquivo é rejeitado (400) lá atrás.
   const hasMedia = (post.media?.length ?? 0) > 0
   const formatBehavior = getFormatBehavior(post.format)
+  const carouselVideoConflicts = getCarouselVideoConflicts({
+    mediaCount: post.media?.length ?? 0,
+    hasVideo: post.media?.some((item) => item.file_type?.startsWith('video/')) ?? false,
+    platformIds: post.accounts?.map((account) => account.platform?.toLowerCase()) ?? [],
+  })
+  const hasCarouselVideoConflict = carouselVideoConflicts.length > 0
 
   const startEditingCaption = () => {
     setCaptionDraft(post.caption ?? '')
@@ -181,10 +189,15 @@ function KanbanCardModal({
                 </div>
 
                 {formatBehavior.showReelsWarning && (
-                  <div className="flex items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-400">
-                    <Video className="h-4 w-4 shrink-0" />
+                  <WarningBanner icon={Video}>
                     Lembre-se de anexar um vídeo vertical.
-                  </div>
+                  </WarningBanner>
+                )}
+
+                {hasCarouselVideoConflict && (
+                  <WarningBanner icon={AlertTriangle}>
+                    {formatCarouselVideoConflictMessage(carouselVideoConflicts)}
+                  </WarningBanner>
                 )}
 
                 {/* Gated em `isScheduled`, não só em `scheduled_for`: um post já
@@ -204,7 +217,7 @@ function KanbanCardModal({
                     <Button
                       type="button"
                       onClick={() => setShowPublishConfirm(true)}
-                      disabled={isPublishing || accountCount === 0 || !hasMedia}
+                      disabled={isPublishing || accountCount === 0 || !hasMedia || hasCarouselVideoConflict}
                       title={accountCount === 0 ? 'Vincule ao menos uma conta para publicar' : undefined}
                     >
                       <Send className="h-4 w-4 shrink-0" />
@@ -213,7 +226,7 @@ function KanbanCardModal({
                   )}
                   {isDraft && (
                     <ScheduleButton
-                      disabled={accountCount === 0 || !hasMedia}
+                      disabled={accountCount === 0 || !hasMedia || hasCarouselVideoConflict}
                       isScheduling={isScheduling}
                       // Só pré-seleciona o calendário: o que vai pro backend é a data que o
                       // usuário confirmar, não a sugestão da IA.
