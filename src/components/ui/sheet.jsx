@@ -13,7 +13,9 @@ const SheetPortal = SheetPrimitive.Portal
 const SheetOverlay = React.forwardRef(({ className, ...props }, ref) => (
   <SheetPrimitive.Overlay
     className={cn(
-      "fixed inset-0 z-50 bg-black/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      // z-[60]: mesmo motivo do PopoverContent — precisa ficar acima de um Dialog (z-50)
+      // pra funcionar quando aberto de dentro de um modal.
+      "fixed inset-0 z-[60] bg-black/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
     {...props}
@@ -23,7 +25,7 @@ const SheetOverlay = React.forwardRef(({ className, ...props }, ref) => (
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName
 
 const sheetVariants = cva(
-  "fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
+  "fixed z-[60] gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
   {
     variants: {
       side: {
@@ -37,8 +39,11 @@ const sheetVariants = cva(
   }
 )
 
-const SheetContent = React.forwardRef(({ side = "right", className, children, ...props }, ref) => (
-  <SheetPortal>
+const SheetContent = React.forwardRef(({ side = "right", className, children, container, ...props }, ref) => (
+  // container: mesmo mecanismo do PopoverContent (ver ui/popover.jsx) — sem isso, um Sheet
+  // aberto de dentro de um Dialog porta pro <body> e o Dialog o vê como clique "de fora",
+  // fechando sozinho. Passar o nó do DialogContent aqui mantém o Sheet como descendente real.
+  <SheetPortal container={container}>
     <SheetOverlay />
     <SheetPrimitive.Content
       ref={ref}

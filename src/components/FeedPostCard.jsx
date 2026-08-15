@@ -6,8 +6,11 @@ import ClientAvatar from '@/components/ClientAvatar'
 import MediaCarousel from '@/components/MediaCarousel'
 import { canRepublish, statusBadgeVariant } from '@/lib/feedStatus'
 import { PLATFORMS } from '@/lib/platforms'
+import { POST_FORMAT } from '@/lib/postFormat'
 
 function FeedPostCard({ post, showAuthor = true, onRepublish, isRepublishing = false }) {
+  const isStory = post.format === POST_FORMAT.STORY
+
   return (
     <Card>
       <CardContent className="p-3 flex flex-col gap-3">
@@ -30,9 +33,12 @@ function FeedPostCard({ post, showAuthor = true, onRepublish, isRepublishing = f
           <Badge variant={statusBadgeVariant(post.status)}>{post.status}</Badge>
         </div>
 
-        <p className="text-sm text-foreground whitespace-pre-wrap">
-          {post.caption?.trim() ? post.caption : <span className="text-muted-foreground">Sem legenda</span>}
-        </p>
+        {/* Story não tem legenda — some o campo em vez de mostrar "Sem legenda". */}
+        {!isStory && (
+          <p className="text-sm text-foreground whitespace-pre-wrap">
+            {post.caption?.trim() ? post.caption : <span className="text-muted-foreground">Sem legenda</span>}
+          </p>
+        )}
 
         <div className="flex flex-wrap gap-1.5">
           {post.accounts.map((account) => {

@@ -14,8 +14,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import KanbanCard, { KanbanCardContent } from '@/components/KanbanCard'
 import KanbanCardModal from '@/components/KanbanCardModal'
+import SeriesDetailModal from '@/components/SeriesDetailModal'
 import ConfirmActionSheet from '@/components/ConfirmActionSheet'
 import { useKanbanManagement } from '@/hooks/useKanbanManagement'
+import { resolveSeriesGroups, groupColumnPosts } from '@/lib/kanbanSeries'
 import { cn } from '@/lib/utils'
 
 // Colunas fixas que o backend não aceita como destino de um move manual.
@@ -28,7 +30,7 @@ function isLockedColumn(column) {
 // memo: durante o arrasto o dnd-kit atualiza o `isOver` a cada movimento do
 // ponteiro. Sem memo, o componente pai re-renderiza todas as colunas (e todos
 // os cards) a cada frame; com memo, só a coluna sob o cursor redesenha.
-const KanbanColumn = memo(function KanbanColumn({ column, onOpenCard, onRequestDelete }) {
+const KanbanColumn = memo(function KanbanColumn({ column, seriesGroups, onOpenCard, onRequestDelete }) {
   const locked = isLockedColumn(column)
   // Só essa coluna fixa tem retenção por tempo — o backend já filtra
   // GET /kanban pra devolver aqui só posts concluídos nos últimos 15 dias.
@@ -40,13 +42,16 @@ const KanbanColumn = memo(function KanbanColumn({ column, onOpenCard, onRequestD
     id: `column-${column.id}`,
     data: droppableData,
   })
+  // Ocorrências da mesma série colapsam num card mestre — a contagem do cabeçalho
+  // segue o que está visível, não o total de posts cru.
+  const groups = useMemo(() => groupColumnPosts(column, seriesGroups), [column, seriesGroups])
 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-foreground">{column.name}</h3>
         <div className="flex items-center gap-1">
-          <span className="text-xs text-muted-foreground">{column.posts.length}</span>
+          <span className="text-xs text-muted-foreground">{groups.length}</span>
           {!column.is_fixed && (
             <Button
               type="button"
@@ -80,7 +85,7 @@ const KanbanColumn = memo(function KanbanColumn({ column, onOpenCard, onRequestD
           isOver && !locked && 'bg-accent/40 ring-2 ring-ring/40'
         )}
       >
-        {column.posts.length === 0 ? (
+        {groups.length === 0 ? (
           <p className="py-6 text-center text-xs text-muted-foreground">
             {isFinalizado
               ? 'Nenhum post finalizado nos últimos 15 dias'
@@ -89,8 +94,10 @@ const KanbanColumn = memo(function KanbanColumn({ column, onOpenCard, onRequestD
                 : 'Nenhum post'}
           </p>
         ) : (
-          column.posts.map((post) => (
-            <KanbanCard key={post.id} post={post} onOpen={onOpenCard} dragDisabled={locked} />
+          groups.map(({ key, post, seriesCount }) => (
+            // Card mestre de série só existe em Agendado/Finalizado, que já são
+            // colunas locked — nenhum caso extra de drag a tratar aqui.
+            <KanbanCard key={key} post={post} seriesCount={seriesCount} onOpen={onOpenCard} dragDisabled={locked} />
           ))
         )}
       </div>
@@ -126,16 +133,30 @@ function ClientWorkflowTab() {
     deletePostAction,
     publishPostAction,
     scheduleDraftAction,
+    scheduleStoryDraftAction,
     linkAccountsAction,
     refetch,
   } = useKanbanManagement(clientId)
 
   const [selectedPost, setSelectedPost] = useState(null)
+  const [openSeriesPost, setOpenSeriesPost] = useState(null)
   const [newColumnName, setNewColumnName] = useState('')
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [activePost, setActivePost] = useState(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+
+  // Resolvido uma vez pro quadro inteiro (não por coluna) — uma série pode ter
+  // ocorrências em Agendado e Finalizado ao mesmo tempo, ver lib/kanbanSeries.js.
+  const seriesGroups = useMemo(() => resolveSeriesGroups(columns), [columns])
+
+  // Post de série abre a série inteira, não o popup de post único — não faz sentido
+  // gerenciar "esta ocorrência" isolada quando o card já representa o grupo. Guarda o post
+  // (não só o id): o SeriesDetailModal usa a mídia dele pra mostrar a imagem grande.
+  const handleOpenCard = (post) => {
+    if (post.recurrence_id != null) setOpenSeriesPost(post)
+    else setSelectedPost(post)
+  }
 
   const handleDragStart = (event) => {
     const dragged = columns
@@ -177,30 +198,36 @@ function ClientWorkflowTab() {
     if (ok) setNewColumnName('')
   }
 
-  const handleCancelSchedule = async (postId) => {
-    const ok = await cancelScheduleAction(postId)
+  const handleCancelSchedule = async (post) => {
+    const ok = await cancelScheduleAction(post)
     // O post volta a ser rascunho e muda de coluna — fecha pra ver o quadro atualizado.
     if (ok) setSelectedPost(null)
     return ok
   }
 
-  const handleDeletePost = async (postId) => {
-    const ok = await deletePostAction(postId)
+  const handleDeletePost = async (post) => {
+    const ok = await deletePostAction(post)
     // O post deixa de existir, então fecha o modal junto.
     if (ok) setSelectedPost(null)
     return ok
   }
 
-  const handlePublish = async (postId) => {
-    const ok = await publishPostAction(postId)
+  const handlePublish = async (post) => {
+    const ok = await publishPostAction(post)
     // O post sai de DRAFT e muda de coluna — fecha e deixa o quadro atualizado à vista.
     if (ok) setSelectedPost(null)
     return ok
   }
 
-  const handleSchedule = async (postId, scheduledFor) => {
-    const ok = await scheduleDraftAction(postId, scheduledFor)
+  const handleSchedule = async (post, scheduledFor) => {
+    const ok = await scheduleDraftAction(post, scheduledFor)
     // O backend move o card pra Agendado sozinho — fecha o modal pra ver o quadro atualizado.
+    if (ok) setSelectedPost(null)
+    return ok
+  }
+
+  const handleScheduleStory = async (post, scheduledDates) => {
+    const ok = await scheduleStoryDraftAction(post, scheduledDates)
     if (ok) setSelectedPost(null)
     return ok
   }
@@ -272,7 +299,8 @@ function ClientWorkflowTab() {
             <KanbanColumn
               key={column.id}
               column={column}
-              onOpenCard={setSelectedPost}
+              seriesGroups={seriesGroups}
+              onOpenCard={handleOpenCard}
               onRequestDelete={setDeleteTarget}
             />
           ))}
@@ -302,6 +330,7 @@ function ClientWorkflowTab() {
         onDeletePost={handleDeletePost}
         onPublish={handlePublish}
         onSchedule={handleSchedule}
+        onScheduleStory={handleScheduleStory}
         isUpdatingCaption={updatingCaptionPostId === openPost?.id}
         isUpdatingMedia={updatingMediaPostId === openPost?.id}
         removingMediaId={removingMediaId}
@@ -312,6 +341,13 @@ function ClientWorkflowTab() {
         isScheduling={schedulingPostId === openPost?.id}
         onLinkAccounts={linkAccountsAction}
         isLinkingAccounts={linkingAccountsPostId === openPost?.id}
+      />
+
+      <SeriesDetailModal
+        open={openSeriesPost !== null}
+        onOpenChange={(open) => { if (!open) setOpenSeriesPost(null) }}
+        post={openSeriesPost}
+        clientId={clientId}
       />
 
       <ConfirmActionSheet

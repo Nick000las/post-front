@@ -30,12 +30,19 @@ async function mediaItemToFile(item) {
 // Editor de mídia inline do popup do Kanban — só usado com post.status === 'DRAFT'.
 // Dono só da parte de arquivo (dropzone + reconstrução do conjunto completo);
 // toda a renderização do carrossel/miniaturas é do MediaCarousel.
-function DraftMediaEditor({ post, onReplaceAll, onRemoveItem, isReplacing, removingMediaId }) {
+function DraftMediaEditor({ post, maxFiles = 10, onReplaceAll, onRemoveItem, isReplacing, removingMediaId }) {
   const [isPreparing, setIsPreparing] = useState(false)
   const media = post.media ?? EMPTY_MEDIA
+  // Story: 1 mídia só, e não existe endpoint de exclusão por item — trocar o arquivo já
+  // substitui o único que havia, então o merge-fetch abaixo não faz sentido aqui.
+  const isSingleMedia = maxFiles === 1
 
   const onDrop = useCallback(async (acceptedFiles) => {
     if (acceptedFiles.length === 0) return
+    if (isSingleMedia) {
+      await onReplaceAll([acceptedFiles[0]])
+      return
+    }
     setIsPreparing(true)
     try {
       const existingFiles = await Promise.all(media.map(mediaItemToFile))
@@ -45,14 +52,14 @@ function DraftMediaEditor({ post, onReplaceAll, onRemoveItem, isReplacing, remov
     } finally {
       setIsPreparing(false)
     }
-  }, [media, onReplaceAll])
+  }, [media, onReplaceAll, isSingleMedia])
 
   const busy = isReplacing || isPreparing
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     accept: ACCEPTED_TYPES,
-    multiple: true,
+    multiple: !isSingleMedia,
     noClick: true,
     noKeyboard: true,
     disabled: busy,
@@ -73,7 +80,7 @@ function DraftMediaEditor({ post, onReplaceAll, onRemoveItem, isReplacing, remov
         className="w-full max-h-80 object-cover"
         emptyLabel="Nenhuma mídia anexada"
         emptyHint="Arraste um arquivo aqui ou use o + abaixo"
-        onRemoveItem={(mediaId) => onRemoveItem(mediaId)}
+        onRemoveItem={isSingleMedia ? undefined : (mediaId) => onRemoveItem(mediaId)}
         removingItemId={removingMediaId}
         onAddClick={open}
         disabled={busy}

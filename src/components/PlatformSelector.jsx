@@ -4,7 +4,14 @@ import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
 import { PLATFORMS } from '@/lib/platforms'
 
-function PlatformSelector({ selectedPlatforms, onToggle, onOpenDrawer, accountLabels, disabled: disabledAll = false }) {
+function PlatformSelector({
+  selectedPlatforms,
+  onToggle,
+  onOpenDrawer,
+  accountLabels,
+  disabled: disabledAll = false,
+  disabledPlatformIds = [],
+}) {
   return (
     <div className="flex flex-col gap-2">
       <label className="text-sm font-medium text-foreground">
@@ -14,7 +21,10 @@ function PlatformSelector({ selectedPlatforms, onToggle, onOpenDrawer, accountLa
         <CardContent className="p-3 flex flex-col gap-2">
           {PLATFORMS.map(({ id, name, icon: Icon, disabled: platformDisabled, comingSoon }) => {
             const isChecked = selectedPlatforms.has(id)
-            const disabled = platformDisabled || disabledAll
+            // Rede sem suporte ao formato atual (ex.: TikTok/LinkedIn em Story) — o bloqueio
+            // real acontece no submit (getStoryPlatformConflicts), aqui é o aviso visual.
+            const unsupported = disabledPlatformIds.includes(id)
+            const disabled = platformDisabled || disabledAll || unsupported
 
             return (
               <div
@@ -46,6 +56,11 @@ function PlatformSelector({ selectedPlatforms, onToggle, onOpenDrawer, accountLa
                 {comingSoon && (
                   <Badge variant="secondary" className="text-xs">
                     Em breve
+                  </Badge>
+                )}
+                {unsupported && (
+                  <Badge variant="secondary" className="text-xs">
+                    Sem suporte a Story
                   </Badge>
                 )}
                 {!disabled && isChecked && (

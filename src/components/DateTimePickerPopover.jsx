@@ -5,19 +5,7 @@ import { Calendar } from '@/components/ui/calendar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-
-function combineDateTime(date, time) {
-  if (!date) return null
-  const [hours, minutes] = (time || '').split(':').map(Number)
-  const result = new Date(date)
-  result.setHours(Number.isFinite(hours) ? hours : 0, Number.isFinite(minutes) ? minutes : 0, 0, 0)
-  return result
-}
-
-function toTimeInputValue(date) {
-  if (!date) return '12:00'
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
-}
+import { combineDateTime, toTimeInputValue } from '@/lib/dateTime'
 
 function DateTimePickerPopover({
   trigger,

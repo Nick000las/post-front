@@ -19,6 +19,7 @@ function ConfirmActionSheet({
   isLoading,
   onConfirm,
   variant = 'default',
+  container,
 }) {
   const handleConfirm = async () => {
     const ok = await onConfirm()
@@ -27,7 +28,7 @@ function ConfirmActionSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent>
+      <SheetContent container={container}>
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
           {description && <SheetDescription>{description}</SheetDescription>}

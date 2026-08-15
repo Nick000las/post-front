@@ -15,6 +15,21 @@ import {
   scheduleDraft,
 } from '@/api/drafts'
 import { cancelSchedule, changeScheduleDate, deletePost, linkDraftAccounts } from '@/api/posts'
+import {
+  updateStoryMedia,
+  linkStoryAccounts,
+  deleteStory,
+  publishExistingStory,
+  rescheduleStory,
+  cancelStorySchedule,
+  scheduleStoryDraft,
+} from '@/api/stories'
+import { POST_FORMAT } from '@/lib/postFormat'
+
+// Story é um recurso REST separado (/stories/*), então cada ação decide aqui — num lugar só —
+// qual família de endpoints chamar. Os componentes de UI recebem o post inteiro e não sabem
+// que existe essa bifurcação.
+const isStory = (post) => post?.format === POST_FORMAT.STORY
 
 export function useKanbanManagement(clientId) {
   const [columns, setColumns] = useState([])
@@ -162,7 +177,10 @@ export function useKanbanManagement(clientId) {
     }
   }, [clientId, columns])
 
-  const updateCaptionAction = useCallback(async (postId, caption) => {
+  // Só Feed: Story não tem legenda (a rota PUT /stories/:id foi removida do backend), e o
+  // popup nem oferece a edição pra esse formato.
+  const updateCaptionAction = useCallback(async (post, caption) => {
+    const postId = post.id
     setUpdatingCaptionPostId(postId)
     try {
       const data = await updateDraftCaption(postId, caption, clientId)
@@ -186,17 +204,23 @@ export function useKanbanManagement(clientId) {
     }
   }, [clientId])
 
-  const updateDraftMediaAction = useCallback(async (postId, files) => {
+  const updateDraftMediaAction = useCallback(async (post, files) => {
+    const postId = post.id
     setUpdatingMediaPostId(postId)
     try {
-      const data = await updateDraftMedia(postId, clientId, files)
+      // Story aceita 1 arquivo só — desembrulha o array aqui pra o editor de mídia não
+      // precisar conhecer essa assimetria entre as duas APIs.
+      const data = isStory(post)
+        ? await updateStoryMedia(postId, clientId, files[0])
+        : await updateDraftMedia(postId, clientId, files)
+      const nextMedia = isStory(post) ? data.story.media : data.draft.media
       // Patch só de `media`: a resposta (POST_SELECT_BASE no backend) não traz
       // `accounts`, então um spread do draft inteiro apagaria isso.
       setColumns((prev) =>
         prev.map((c) => ({
           ...c,
           posts: c.posts.map((p) =>
-            String(p.id) === String(postId) ? { ...p, media: data.draft.media } : p
+            String(p.id) === String(postId) ? { ...p, media: nextMedia } : p
           ),
         }))
       )
@@ -210,7 +234,10 @@ export function useKanbanManagement(clientId) {
     }
   }, [clientId])
 
-  const removeDraftMediaItemAction = useCallback(async (postId, mediaId) => {
+  // Só Feed: Story tem 1 mídia só e não existe endpoint de exclusão por item — o editor de
+  // mídia nem oferece o X na miniatura quando é Story (ver DraftMediaEditor).
+  const removeDraftMediaItemAction = useCallback(async (post, mediaId) => {
+    const postId = post.id
     setRemovingMediaId(mediaId)
     try {
       const data = await removeDraftMediaItem(postId, mediaId, clientId)
@@ -232,10 +259,14 @@ export function useKanbanManagement(clientId) {
     }
   }, [clientId])
 
-  const changeScheduleDateAction = useCallback(async (postId, scheduledFor) => {
+  const changeScheduleDateAction = useCallback(async (post, scheduledFor) => {
+    const postId = post.id
     setChangingScheduleDateId(postId)
     try {
-      const data = await changeScheduleDate(postId, clientId, scheduledFor)
+      // Reagenda 1 ocorrência — vale igual pra um Story avulso ou pra um membro de uma série.
+      const data = isStory(post)
+        ? await rescheduleStory(postId, clientId, scheduledFor)
+        : await changeScheduleDate(postId, clientId, scheduledFor)
       // Patch pontual: mudar a data não move o card de coluna, então recarregar
       // o quadro inteiro seria desperdício.
       setColumns((prev) =>
@@ -256,12 +287,14 @@ export function useKanbanManagement(clientId) {
     }
   }, [clientId])
 
-  const cancelScheduleAction = useCallback(async (postId) => {
+  const cancelScheduleAction = useCallback(async (post) => {
+    const postId = post.id
     setCancellingScheduleId(postId)
     try {
       // O backend reverte o post para DRAFT (mídia e legenda preservadas) e move
       // o card de volta pra Ideias sozinho — por isso recarrega o quadro inteiro.
-      await cancelSchedule(postId, clientId)
+      if (isStory(post)) await cancelStorySchedule(postId, clientId)
+      else await cancelSchedule(postId, clientId)
       await fetchBoard({ silent: true })
       toast.success('Agendamento cancelado — o post voltou para Ideias como rascunho.')
       return true
@@ -273,10 +306,12 @@ export function useKanbanManagement(clientId) {
     }
   }, [clientId, fetchBoard])
 
-  const deletePostAction = useCallback(async (postId) => {
+  const deletePostAction = useCallback(async (post) => {
+    const postId = post.id
     setDeletingPostId(postId)
     try {
-      await deletePost(postId, clientId)
+      if (isStory(post)) await deleteStory(postId, clientId)
+      else await deletePost(postId, clientId)
       // O post some do quadro sem afetar mais nada, então basta removê-lo do
       // estado local — nenhum outro card muda de posição.
       setColumns((prev) =>
@@ -292,11 +327,14 @@ export function useKanbanManagement(clientId) {
     }
   }, [clientId])
 
-  const publishPostAction = useCallback(async (postId) => {
+  const publishPostAction = useCallback(async (post) => {
+    const postId = post.id
     setPublishingPostId(postId)
     try {
       // Reaproveita a mídia que já está no servidor — nada de reupload.
-      const data = await publishDraft(postId, clientId)
+      const data = isStory(post)
+        ? await publishExistingStory(postId, clientId)
+        : await publishDraft(postId, clientId)
       // A publicação é assíncrona (fila) e o post muda de status/coluna, então
       // recarrega o quadro em vez de adivinhar o novo estado.
       await fetchBoard({ silent: true })
@@ -313,7 +351,9 @@ export function useKanbanManagement(clientId) {
     }
   }, [clientId, fetchBoard])
 
-  const scheduleDraftAction = useCallback(async (postId, scheduledFor) => {
+  // Só Feed: agenda uma data única. Story usa scheduleStoryDraftAction (lista de datas).
+  const scheduleDraftAction = useCallback(async (post, scheduledFor) => {
+    const postId = post.id
     setSchedulingPostId(postId)
     try {
       // Opera sobre o post existente (sem reupload) — o backend move o card pra
@@ -333,10 +373,35 @@ export function useKanbanManagement(clientId) {
     }
   }, [clientId, fetchBoard])
 
-  const linkAccountsAction = useCallback(async (postId, accountIds) => {
+  // Story: agenda o rascunho existente com 1 data (avulso) ou N (série). Handler próprio em vez
+  // de um scheduleDraftAction polimórfico — o argumento é uma lista, não uma data.
+  const scheduleStoryDraftAction = useCallback(async (post, scheduledDates) => {
+    const postId = post.id
+    setSchedulingPostId(postId)
+    try {
+      const data = await scheduleStoryDraft(postId, clientId, scheduledDates)
+      // Numa série, a 1ª ocorrência reaproveita este mesmo id e as demais nascem como cards
+      // novos — o refetch cobre os dois casos sem precisar reconciliar nada à mão.
+      await fetchBoard({ silent: true })
+      const { totalOcorrencias, totalContas, recorrenciaId } = data.detalhes ?? {}
+      toast.success(data.message ?? 'Story agendado com sucesso!', {
+        description: `${totalOcorrencias ?? scheduledDates.length} ocorrência(s) · ${totalContas ?? 0} conta(s)${recorrenciaId != null ? ' · série' : ''}.`,
+      })
+      return true
+    } catch (err) {
+      toast.error('Falha ao agendar Story', { description: err.message })
+      return false
+    } finally {
+      setSchedulingPostId(null)
+    }
+  }, [clientId, fetchBoard])
+
+  const linkAccountsAction = useCallback(async (post, accountIds) => {
+    const postId = post.id
     setLinkingAccountsPostId(postId)
     try {
-      await linkDraftAccounts(postId, clientId, accountIds)
+      if (isStory(post)) await linkStoryAccounts(postId, clientId, accountIds)
+      else await linkDraftAccounts(postId, clientId, accountIds)
       // O vínculo muda `accounts` do post, que o PUT não devolve — rebusca o quadro.
       await fetchBoard({ silent: true })
       toast.success('Contas vinculadas com sucesso!')
@@ -378,6 +443,7 @@ export function useKanbanManagement(clientId) {
     deletePostAction,
     publishPostAction,
     scheduleDraftAction,
+    scheduleStoryDraftAction,
     linkAccountsAction,
     refetch: fetchBoard,
   }

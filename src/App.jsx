@@ -10,12 +10,19 @@ import PublishAsClientSelect from './components/PublishAsClientSelect'
 import ConfirmActionSheet from './components/ConfirmActionSheet'
 import AccountDrawer from './components/AccountDrawer'
 import WarningBanner from './components/WarningBanner'
+import PostFormatToggle from './components/PostFormatToggle'
+import StorySchedulePicker from './components/StorySchedulePicker'
 import { usePublishContext } from '@/contexts/PublishContext'
-import { formatCarouselVideoConflictMessage } from '@/lib/platformCompat'
+import {
+  formatCarouselVideoConflictMessage,
+  formatStoryPlatformConflictMessage,
+} from '@/lib/platformCompat'
 
 function App() {
   const {
     mediaItems,
+    postFormat,
+    formatBehavior,
     caption,
     setCaption,
     selectedClientId,
@@ -33,9 +40,11 @@ function App() {
     hasVideo,
     canPublish,
     carouselVideoConflicts,
+    storyPlatformConflicts,
     accountLabels,
     activeDrawerPlatformMeta,
     activeDrawerAccounts,
+    handleFormatChange,
     handleFilesAdded,
     handleRemoveFile,
     handlePlatformToggle,
@@ -45,6 +54,7 @@ function App() {
     handlePublish,
     handleSaveDraft,
     handleSchedule,
+    handleScheduleStory,
     ensureAccountsLoaded,
   } = usePublishContext()
 
@@ -76,12 +86,19 @@ function App() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="flex flex-col gap-4">
+            <PostFormatToggle
+              value={postFormat}
+              onChange={handleFormatChange}
+              disabled={isPublishing || isSavingDraft || isScheduling}
+            />
             <MediaDropzone
               items={mediaItems}
               onFilesAdded={handleFilesAdded}
               onRemoveItem={handleRemoveFile}
+              maxFiles={formatBehavior.maxFiles}
             />
-            <CaptionField value={caption} onChange={setCaption} />
+            {/* Story não tem legenda — o campo some, não vira "nota interna". */}
+            {formatBehavior.showCaptionField && <CaptionField value={caption} onChange={setCaption} />}
           </div>
 
           <div className="flex flex-col gap-4">
@@ -91,6 +108,7 @@ function App() {
               onOpenDrawer={handleOpenAccountDrawer}
               accountLabels={accountLabels}
               disabled={noClientSelected}
+              disabledPlatformIds={formatBehavior.disabledPlatforms}
             />
             {noClientSelected && (
               <p className="text-sm text-muted-foreground">
@@ -102,17 +120,32 @@ function App() {
                 {formatCarouselVideoConflictMessage(carouselVideoConflicts)}
               </WarningBanner>
             )}
+            {storyPlatformConflicts.length > 0 && (
+              <WarningBanner icon={AlertTriangle}>
+                {formatStoryPlatformConflictMessage(storyPlatformConflicts)}
+              </WarningBanner>
+            )}
             <div className="flex flex-wrap gap-2">
               <SaveDraftButton
                 canSave={canPublish}
                 isSavingDraft={isSavingDraft}
                 onClick={handleSaveDraft}
               />
-              <ScheduleButton
-                disabled={!canPublish}
-                isScheduling={isScheduling}
-                onConfirm={handleSchedule}
-              />
+              {/* Story agenda uma LISTA de datas (avulsa ou série recorrente) — picker e
+                  handler próprios, em vez de um handleSchedule que adivinha o tipo do argumento. */}
+              {formatBehavior.showRecurrencePanel ? (
+                <StorySchedulePicker
+                  disabled={!canPublish}
+                  isScheduling={isScheduling}
+                  onConfirm={handleScheduleStory}
+                />
+              ) : (
+                <ScheduleButton
+                  disabled={!canPublish}
+                  isScheduling={isScheduling}
+                  onConfirm={handleSchedule}
+                />
+              )}
               <PublishButton
                 canPublish={canPublish}
                 isPublishing={isPublishing}

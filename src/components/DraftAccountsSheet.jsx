@@ -9,7 +9,7 @@ import { PLATFORMS } from '@/lib/platforms'
 
 // Diferente do AccountDrawer (que lista as contas de UMA plataforma no fluxo de publicação), aqui
 // as contas do cliente aparecem todas juntas: um draft pode ter contas de redes diferentes.
-function DraftAccountsSheet({ post, clientId, onSave, isSaving }) {
+function DraftAccountsSheet({ post, clientId, disabledPlatforms = [], onSave, isSaving }) {
   const [open, setOpen] = useState(false)
   const [selectedIds, setSelectedIds] = useState([])
   const { accounts, status, error, refetch } = useClientAccounts(clientId)
@@ -88,20 +88,28 @@ function DraftAccountsSheet({ post, clientId, onSave, isSaving }) {
                   {accounts.map((account) => {
                     const platformMeta = PLATFORMS.find((p) => p.id === account.platform?.toLowerCase())
                     const Icon = platformMeta?.icon
+                    const isChecked = selectedIds.includes(account.id)
+                    const isIncompatible = disabledPlatforms.includes(account.platform?.toLowerCase())
+                    // Bloqueia só vincular uma conta incompatível nova — uma que já ficou
+                    // vinculada por engano ainda pode ser desmarcada pra destravar a publicação.
                     return (
                       <label
                         key={account.id}
                         htmlFor={`draft-account-${account.id}`}
+                        title={isIncompatible ? `Esta rede não suporta ${post.format === 'STORY' ? 'Stories' : 'este formato'} via API` : undefined}
                         className="flex cursor-pointer items-center gap-3 rounded-lg border px-3 py-2.5 hover:bg-muted"
                       >
                         <Checkbox
                           id={`draft-account-${account.id}`}
-                          checked={selectedIds.includes(account.id)}
+                          checked={isChecked}
                           onCheckedChange={() => toggleAccount(account.id)}
-                          disabled={isSaving}
+                          disabled={isSaving || (isIncompatible && !isChecked)}
                         />
                         {Icon && <Icon className="h-4 w-4 shrink-0 text-foreground" />}
                         <span className="text-sm font-medium text-foreground">{account.name}</span>
+                        {isIncompatible && (
+                          <span className="ml-auto text-xs text-muted-foreground">Sem suporte a Story</span>
+                        )}
                       </label>
                     )
                   })}

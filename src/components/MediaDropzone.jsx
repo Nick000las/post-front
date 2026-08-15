@@ -14,7 +14,10 @@ const ACCEPTED_TYPES = {
 // PublishContext.handleFilesAdded/handleRemoveFile). A posição no array vira
 // `order` do carrossel no backend, por isso o badge numerado usa o índice
 // atual, não algo salvo em cada item.
-function MediaDropzone({ items, onFilesAdded, onRemoveItem }) {
+function MediaDropzone({ items, onFilesAdded, onRemoveItem, maxFiles = 10 }) {
+  const isSingle = maxFiles === 1
+  const isFull = items.length >= maxFiles
+
   const onDrop = useCallback((acceptedFiles) => {
     if (acceptedFiles.length > 0) onFilesAdded(acceptedFiles)
   }, [onFilesAdded])
@@ -22,7 +25,8 @@ function MediaDropzone({ items, onFilesAdded, onRemoveItem }) {
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop,
     accept: ACCEPTED_TYPES,
-    multiple: true,
+    multiple: !isSingle,
+    maxFiles,
     noClick: items.length > 0,
   })
 
@@ -43,10 +47,15 @@ function MediaDropzone({ items, onFilesAdded, onRemoveItem }) {
           <UploadCloud className="h-10 w-10 text-muted-foreground" />
           <div>
             <p className="text-sm font-medium text-foreground">
-              {isDragActive ? 'Solte os arquivos aqui' : 'Arraste imagens ou vídeos, ou clique para selecionar'}
+              {isDragActive
+                ? 'Solte aqui'
+                : isSingle
+                  ? 'Arraste uma imagem ou vídeo, ou clique para selecionar'
+                  : 'Arraste imagens ou vídeos, ou clique para selecionar'}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              JPG, PNG · MP4, MOV (máx. 300MB) · Solte mais de um arquivo para criar um carrossel
+              JPG, PNG · MP4, MOV (máx. 300MB)
+              {isSingle ? ' · Sugerimos mídia vertical (9:16)' : ' · Solte mais de um arquivo para criar um carrossel'}
             </p>
           </div>
         </div>
@@ -82,15 +91,17 @@ function MediaDropzone({ items, onFilesAdded, onRemoveItem }) {
           )
         })}
 
-        <button
-          type="button"
-          onClick={open}
-          className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-          aria-label="Adicionar mais arquivos"
-        >
-          <Plus className="h-5 w-5" />
-          <span className="text-xs">Adicionar</span>
-        </button>
+        {!isFull && (
+          <button
+            type="button"
+            onClick={open}
+            className="flex aspect-square flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+            aria-label="Adicionar mais arquivos"
+          >
+            <Plus className="h-5 w-5" />
+            <span className="text-xs">Adicionar</span>
+          </button>
+        )}
       </div>
     </div>
   )

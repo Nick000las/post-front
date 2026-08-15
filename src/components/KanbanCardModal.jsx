@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import ConfirmActionSheet from '@/components/ConfirmActionSheet'
 import ScheduleButton from '@/components/ScheduleButton'
+import StorySchedulePicker from '@/components/StorySchedulePicker'
 import DateTimePickerPopover from '@/components/DateTimePickerPopover'
 import DraftMediaEditor from '@/components/DraftMediaEditor'
 import MediaCarousel from '@/components/MediaCarousel'
@@ -14,8 +15,13 @@ import CardCommentsPanel from '@/components/CardCommentsPanel'
 import DraftAccountsSheet from '@/components/DraftAccountsSheet'
 import { PLATFORMS } from '@/lib/platforms'
 import { suggestedDateToLocalMidnight } from '@/lib/suggestedDate'
-import { getFormatBehavior } from '@/lib/postFormat'
-import { getCarouselVideoConflicts, formatCarouselVideoConflictMessage } from '@/lib/platformCompat'
+import { getFormatBehavior, POST_FORMAT } from '@/lib/postFormat'
+import {
+  getCarouselVideoConflicts,
+  formatCarouselVideoConflictMessage,
+  getStoryPlatformConflicts,
+  formatStoryPlatformConflictMessage,
+} from '@/lib/platformCompat'
 
 const STATUS_LABELS = {
   DRAFT: 'Rascunho',
@@ -45,6 +51,7 @@ function KanbanCardModal({
   onDeletePost,
   onPublish,
   onSchedule,
+  onScheduleStory,
   onLinkAccounts,
   isUpdatingCaption,
   isUpdatingMedia,
@@ -77,13 +84,20 @@ function KanbanCardModal({
   // Idem pra mídia: excluir o último item pode deixar o draft vazio, e
   // publicar/agendar sem arquivo é rejeitado (400) lá atrás.
   const hasMedia = (post.media?.length ?? 0) > 0
+  const isStory = post.format === POST_FORMAT.STORY
   const formatBehavior = getFormatBehavior(post.format)
+  const accountPlatformIds = post.accounts?.map((account) => account.platform?.toLowerCase()) ?? []
   const carouselVideoConflicts = getCarouselVideoConflicts({
     mediaCount: post.media?.length ?? 0,
     hasVideo: post.media?.some((item) => item.file_type?.startsWith('video/')) ?? false,
-    platformIds: post.accounts?.map((account) => account.platform?.toLowerCase()) ?? [],
+    platformIds: accountPlatformIds,
   })
   const hasCarouselVideoConflict = carouselVideoConflicts.length > 0
+  const storyPlatformConflicts = isStory
+    ? getStoryPlatformConflicts({ platformIds: accountPlatformIds })
+    : []
+  const hasStoryPlatformConflict = storyPlatformConflicts.length > 0
+  const blockedByConflict = hasCarouselVideoConflict || hasStoryPlatformConflict
 
   const startEditingCaption = () => {
     setCaptionDraft(post.caption ?? '')
@@ -91,7 +105,7 @@ function KanbanCardModal({
   }
 
   const handleSaveCaption = async () => {
-    const ok = await onUpdateCaption(post.id, captionDraft)
+    const ok = await onUpdateCaption(post, captionDraft)
     if (ok) setIsEditingCaption(false)
   }
 
@@ -114,8 +128,9 @@ function KanbanCardModal({
                 {isDraft ? (
                   <DraftMediaEditor
                     post={post}
-                    onReplaceAll={(files) => onReplaceMedia(post.id, files)}
-                    onRemoveItem={(mediaId) => onRemoveMediaItem(post.id, mediaId)}
+                    maxFiles={formatBehavior.maxFiles}
+                    onReplaceAll={(files) => onReplaceMedia(post, files)}
+                    onRemoveItem={(mediaId) => onRemoveMediaItem(post, mediaId)}
                     isReplacing={isUpdatingMedia}
                     removingMediaId={removingMediaId}
                   />
@@ -125,7 +140,9 @@ function KanbanCardModal({
               </div>
 
               <div className="flex flex-col gap-3">
-                {isEditingCaption ? (
+                {/* Story não tem legenda — o campo não existe pra esse formato, não é uma
+                    legenda vazia esperando ser preenchida. */}
+                {!formatBehavior.showCaptionField ? null : isEditingCaption ? (
                   <div className="flex flex-col gap-2">
                     <Textarea
                       value={captionDraft}
@@ -172,9 +189,9 @@ function KanbanCardModal({
                   <Badge variant={getStatusVariant(post.status)}>
                     {STATUS_LABELS[post.status] ?? post.status}
                   </Badge>
-                  {formatBehavior.showStoryComingSoon && (
-                    <Badge variant="secondary" className="text-xs">
-                      Story · Em breve
+                  {isStory && (
+                    <Badge className="border-transparent bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400">
+                      Story
                     </Badge>
                   )}
                   {post.accounts?.map((account) => {
@@ -200,6 +217,12 @@ function KanbanCardModal({
                   </WarningBanner>
                 )}
 
+                {hasStoryPlatformConflict && (
+                  <WarningBanner icon={AlertTriangle}>
+                    {formatStoryPlatformConflictMessage(storyPlatformConflicts)}
+                  </WarningBanner>
+                )}
+
                 {/* Gated em `isScheduled`, não só em `scheduled_for`: um post já
                     publicado carrega a data antiga e não está mais agendado. */}
                 {isScheduled && post.scheduled_for && (
@@ -217,21 +240,31 @@ function KanbanCardModal({
                     <Button
                       type="button"
                       onClick={() => setShowPublishConfirm(true)}
-                      disabled={isPublishing || accountCount === 0 || !hasMedia || hasCarouselVideoConflict}
+                      disabled={isPublishing || accountCount === 0 || !hasMedia || blockedByConflict}
                       title={accountCount === 0 ? 'Vincule ao menos uma conta para publicar' : undefined}
                     >
                       <Send className="h-4 w-4 shrink-0" />
                       Publicar agora
                     </Button>
                   )}
-                  {isDraft && (
+                  {/* Story agenda uma LISTA de datas (avulsa ou série), Feed uma data só —
+                      picker e callback próprios pra cada um, sem argumento polimórfico. */}
+                  {isDraft && isStory && (
+                    <StorySchedulePicker
+                      disabled={accountCount === 0 || !hasMedia || blockedByConflict}
+                      isScheduling={isScheduling}
+                      onConfirm={(scheduledDates) => onScheduleStory(post, scheduledDates)}
+                      popoverContainer={dialogContentEl}
+                    />
+                  )}
+                  {isDraft && !isStory && (
                     <ScheduleButton
-                      disabled={accountCount === 0 || !hasMedia || hasCarouselVideoConflict}
+                      disabled={accountCount === 0 || !hasMedia || blockedByConflict}
                       isScheduling={isScheduling}
                       // Só pré-seleciona o calendário: o que vai pro backend é a data que o
                       // usuário confirmar, não a sugestão da IA.
                       initialDate={suggestedDateToLocalMidnight(post.suggested_date)}
-                      onConfirm={(date) => onSchedule(post.id, date.toISOString())}
+                      onConfirm={(date) => onSchedule(post, date.toISOString())}
                       popoverContainer={dialogContentEl}
                     />
                   )}
@@ -239,7 +272,8 @@ function KanbanCardModal({
                     <DraftAccountsSheet
                       post={post}
                       clientId={clientId}
-                      onSave={(accountIds) => onLinkAccounts(post.id, accountIds)}
+                      disabledPlatforms={formatBehavior.disabledPlatforms}
+                      onSave={(accountIds) => onLinkAccounts(post, accountIds)}
                       isSaving={isLinkingAccounts}
                     />
                   )}
@@ -266,7 +300,7 @@ function KanbanCardModal({
                         isSubmitting={isChangingScheduleDate}
                         confirmText="Confirmar nova data"
                         loadingLabel="Salvando..."
-                        onConfirm={(date) => onChangeScheduleDate(post.id, date.toISOString())}
+                        onConfirm={(date) => onChangeScheduleDate(post, date.toISOString())}
                         popoverContainer={dialogContentEl}
                       />
                       {/* `outline` e não `destructive`: cancelar não apaga nada,
@@ -311,7 +345,7 @@ function KanbanCardModal({
         confirmText="Confirmar publicação"
         loadingText="Publicando..."
         isLoading={isPublishing}
-        onConfirm={() => onPublish(post.id)}
+        onConfirm={() => onPublish(post)}
       />
 
       <ConfirmActionSheet
@@ -322,7 +356,7 @@ function KanbanCardModal({
         confirmText="Cancelar agendamento"
         loadingText="Cancelando..."
         isLoading={isCancellingSchedule}
-        onConfirm={() => onCancelSchedule(post.id)}
+        onConfirm={() => onCancelSchedule(post)}
       />
 
       <ConfirmActionSheet
@@ -333,7 +367,7 @@ function KanbanCardModal({
         confirmText="Excluir post"
         loadingText="Excluindo..."
         isLoading={isDeletingPost}
-        onConfirm={() => onDeletePost(post.id)}
+        onConfirm={() => onDeletePost(post)}
         variant="destructive"
       />
     </>

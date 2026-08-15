@@ -15,6 +15,7 @@ import ClientsPage from '@/pages/ClientsPage'
 import ClientDashboardLayout from '@/pages/ClientDashboardLayout'
 import ClientWorkflowTab from '@/pages/client/ClientWorkflowTab'
 import ClientLabIaTab from '@/pages/client/ClientLabIaTab'
+import ClientSeriesTab from '@/pages/client/ClientSeriesTab'
 import ClientContasTab from '@/pages/client/ClientContasTab'
 import ClientFeedTab from '@/pages/client/ClientFeedTab'
 import App from './App'
@@ -50,6 +51,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
               <Route index element={<Navigate to="workflow" replace />} />
               <Route path="workflow" element={<ClientWorkflowTab />} />
               <Route path="lab-ia" element={<ClientLabIaTab />} />
+              <Route path="series" element={<ClientSeriesTab />} />
               <Route path="contas" element={<ClientContasTab />} />
               <Route path="feed" element={<ClientFeedTab />} />
             </Route>

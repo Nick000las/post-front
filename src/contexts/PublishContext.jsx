@@ -4,10 +4,12 @@ import { toast } from 'sonner'
 import { useClientAccounts } from '@/hooks/useClientAccounts'
 import { useClients } from '@/hooks/useClients'
 import { publishPost, saveDraft, schedulePost } from '@/api/posts'
+import { publishStory, saveStoryDraft, scheduleStory } from '@/api/stories'
 import { useAuth } from '@/contexts/AuthContext'
 import { PLATFORMS } from '@/lib/platforms'
 import { VIDEO_SIZE_LIMIT } from '@/lib/constants'
-import { getCarouselVideoConflicts } from '@/lib/platformCompat'
+import { getCarouselVideoConflicts, getStoryPlatformConflicts } from '@/lib/platformCompat'
+import { POST_FORMAT, getFormatBehavior } from '@/lib/postFormat'
 
 const PublishContext = createContext(null)
 
@@ -16,6 +18,9 @@ export function PublishProvider({ children }) {
   // Um único array — cada item já carrega seu File e seu preview juntos, pra
   // nunca poder dessincronizar quando um item é removido.
   const [mediaItems, setMediaItems] = useState([])
+  // Não é só um campo do payload: decide qual família de endpoints o submit chama
+  // (/upload/* pra Feed, /stories/* pra Story).
+  const [postFormat, setPostFormat] = useState(POST_FORMAT.FEED)
   const [caption, setCaption] = useState(() => location.state?.caption ?? '')
   const [selectedClientId, setSelectedClientId] = useState(() => location.state?.clientId ?? null)
   const [selectedPlatforms, setSelectedPlatforms] = useState(new Set(['instagram']))
@@ -43,6 +48,8 @@ export function PublishProvider({ children }) {
   }, [selectedClientId])
 
   const hasVideo = mediaItems.some((item) => item.file.type.startsWith('video/'))
+  const isStory = postFormat === POST_FORMAT.STORY
+  const formatBehavior = useMemo(() => getFormatBehavior(postFormat), [postFormat])
 
   const hasAccountForEverySelectedPlatform = useMemo(
     () => Array.from(selectedPlatforms).every((platformId) => (selectedAccounts[platformId]?.length ?? 0) > 0),
@@ -58,11 +65,19 @@ export function PublishProvider({ children }) {
     [mediaItems.length, hasVideo, selectedPlatforms]
   )
 
+  // Bloqueio obrigatório, não só visual: os adapters de TikTok/LinkedIn não sabem que `format`
+  // existe e publicariam um Story como post comum se uma conta dessas passasse.
+  const storyPlatformConflicts = useMemo(
+    () => (isStory ? getStoryPlatformConflicts({ platformIds: Array.from(selectedPlatforms) }) : []),
+    [isStory, selectedPlatforms]
+  )
+
   const canPublish = mediaItems.length > 0
     && selectedClientId !== null
     && selectedPlatforms.size > 0
     && hasAccountForEverySelectedPlatform
     && carouselVideoConflicts.length === 0
+    && storyPlatformConflicts.length === 0
     && !isPublishing
     && !isSavingDraft
     && !isScheduling
@@ -99,7 +114,39 @@ export function PublishProvider({ children }) {
       }
       accepted.push({ key: crypto.randomUUID(), file, previewUrl: URL.createObjectURL(file) })
     }
-    if (accepted.length > 0) setMediaItems((prev) => [...prev, ...accepted])
+    if (accepted.length === 0) return
+    setMediaItems((prev) => {
+      const merged = [...prev, ...accepted]
+      if (merged.length <= formatBehavior.maxFiles) return merged
+      const dropped = merged.slice(formatBehavior.maxFiles)
+      for (const item of dropped) URL.revokeObjectURL(item.previewUrl)
+      toast.info(`Este formato aceita no máximo ${formatBehavior.maxFiles} arquivo(s).`)
+      return merged.slice(0, formatBehavior.maxFiles)
+    })
+  }, [formatBehavior.maxFiles])
+
+  // Trocar de formato não pode deixar estado inválido pra trás: corta arquivos acima do novo
+  // limite e desmarca as redes que o formato novo não suporta.
+  const handleFormatChange = useCallback((nextFormat) => {
+    const nextBehavior = getFormatBehavior(nextFormat)
+    setPostFormat(nextFormat)
+
+    setMediaItems((prev) => {
+      if (prev.length <= nextBehavior.maxFiles) return prev
+      const dropped = prev.slice(nextBehavior.maxFiles)
+      for (const item of dropped) URL.revokeObjectURL(item.previewUrl)
+      toast.info(`Este formato aceita ${nextBehavior.maxFiles} arquivo(s) — ${dropped.length} removido(s).`)
+      return prev.slice(0, nextBehavior.maxFiles)
+    })
+
+    if (nextBehavior.disabledPlatforms.length > 0) {
+      setSelectedPlatforms((prev) => new Set([...prev].filter((id) => !nextBehavior.disabledPlatforms.includes(id))))
+      setSelectedAccounts((prev) => {
+        const next = { ...prev }
+        for (const id of nextBehavior.disabledPlatforms) delete next[id]
+        return next
+      })
+    }
   }, [])
 
   const handleRemoveFile = useCallback((key) => {
@@ -186,7 +233,9 @@ export function PublishProvider({ children }) {
 
     setIsPublishing(true)
     try {
-      const data = await publishPost(mediaItems.map((m) => m.file), caption, accountIds, selectedClientId)
+      const data = isStory
+        ? await publishStory(mediaItems[0].file, accountIds, selectedClientId)
+        : await publishPost(mediaItems.map((m) => m.file), caption, accountIds, selectedClientId)
       // A publicação é assíncrona (fila): o 202 só confirma que os jobs foram
       // enfileirados, não o resultado por conta — isso só existe depois, via
       // GET /posts/:id/status ou no Feed.
@@ -222,7 +271,8 @@ export function PublishProvider({ children }) {
 
     setIsSavingDraft(true)
     try {
-      await saveDraft(mediaItems.map((m) => m.file), caption, accountIds, selectedClientId)
+      if (isStory) await saveStoryDraft(mediaItems[0].file, accountIds, selectedClientId)
+      else await saveDraft(mediaItems.map((m) => m.file), caption, accountIds, selectedClientId)
       toast.success('Rascunho salvo com sucesso')
 
       resetMedia()
@@ -282,10 +332,46 @@ export function PublishProvider({ children }) {
     }
   }
 
+  // Handler próprio (não um handleSchedule polimórfico): Story manda uma LISTA de datas
+  // (1 = avulso, 2+ = série recorrente), já expandida pelo StorySchedulePicker.
+  const handleScheduleStory = async (scheduledDates) => {
+    if (mediaItems.length === 0 || selectedClientId === null || selectedPlatforms.size === 0) return false
+    const accountIds = Object.values(selectedAccounts).flat()
+    if (accountIds.length === 0) return false
+    if (!Array.isArray(scheduledDates) || scheduledDates.length === 0) return false
+
+    setIsScheduling(true)
+    try {
+      const data = await scheduleStory(mediaItems[0].file, accountIds, selectedClientId, scheduledDates)
+      const { totalOcorrencias, totalContas, recorrenciaId } = data.detalhes ?? {}
+      toast.success(data.message ?? 'Story agendado com sucesso!', {
+        description: `${totalOcorrencias ?? scheduledDates.length} ocorrência(s) · ${totalContas ?? accountIds.length} conta(s)${recorrenciaId != null ? ' · série' : ''}.`,
+      })
+
+      resetMedia()
+      setCaption('')
+      setSelectedPlatforms(new Set(['instagram']))
+      setSelectedAccounts({})
+      return true
+    } catch (err) {
+      if (err.status === 401) {
+        await logout()
+        navigate('/login')
+      } else {
+        toast.error('Falha ao agendar Story', { description: err.message })
+      }
+      return false
+    } finally {
+      setIsScheduling(false)
+    }
+  }
+
   // O value não usa useMemo: irrelevante para performance com poucos componentes numa
   // única tela. Não introduzir memoização/seletores sem um problema real de re-render.
   const value = {
     mediaItems,
+    postFormat,
+    formatBehavior,
     caption,
     setCaption,
     selectedClientId,
@@ -303,9 +389,11 @@ export function PublishProvider({ children }) {
     hasVideo,
     canPublish,
     carouselVideoConflicts,
+    storyPlatformConflicts,
     accountLabels,
     activeDrawerPlatformMeta,
     activeDrawerAccounts,
+    handleFormatChange,
     handleFilesAdded,
     handleRemoveFile,
     handlePlatformToggle,
@@ -315,6 +403,7 @@ export function PublishProvider({ children }) {
     handlePublish,
     handleSaveDraft,
     handleSchedule,
+    handleScheduleStory,
     ensureAccountsLoaded,
   }
 

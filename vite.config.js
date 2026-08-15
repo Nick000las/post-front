@@ -86,6 +86,10 @@ export default defineConfig({
         target: 'http://localhost:3001',
         changeOrigin: true,
       },
+      '/stories': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
       '/ai-lab': {
         target: 'http://localhost:3001',
         changeOrigin: true,
