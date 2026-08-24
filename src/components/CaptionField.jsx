@@ -1,13 +1,12 @@
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { PLATFORMS } from '@/lib/platforms'
+import { useCharacterLimit } from '@/hooks/useCharacterLimit'
 
-const MAX_CHARS = 2200
-const WARN_THRESHOLD = 2100
-
-function CaptionField({ value, onChange }) {
+function CaptionField({ value, onChange, selectedPlatforms }) {
   const length = value.length
-  const isWarning = length >= WARN_THRESHOLD
-  const isAtLimit = length >= MAX_CHARS
+  const { limit, strictestPlatformId, isWarning, isOverLimit } = useCharacterLimit(selectedPlatforms, length)
+  const strictestName = PLATFORMS.find((p) => p.id === strictestPlatformId)?.name
 
   return (
     <div className="flex flex-col gap-1">
@@ -22,17 +21,21 @@ function CaptionField({ value, onChange }) {
           rows={5}
           className="resize-none pr-2 pb-6"
         />
+        {/* Sem maxLength no textarea: o limite muda conforme as redes marcadas, e cortar o texto
+            que o usuário já escreveu ao marcar uma rede mais restrita seria perda de trabalho.
+            Quem barra o envio é o canPublish. */}
         <span
           className={cn(
             'absolute bottom-2 right-3 text-xs select-none',
-            isAtLimit
+            isOverLimit
               ? 'text-destructive font-semibold'
               : isWarning
               ? 'text-destructive'
               : 'text-muted-foreground'
           )}
         >
-          {length}/{MAX_CHARS}
+          {length}/{limit}
+          {strictestName && <span className="ml-1 opacity-70">({strictestName})</span>}
         </span>
       </div>
     </div>

@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useClientAccounts } from '@/hooks/useClientAccounts'
 import { useClients } from '@/hooks/useClients'
+import { useCharacterLimit } from '@/hooks/useCharacterLimit'
 import { publishPost, saveDraft, schedulePost } from '@/api/posts'
 import { publishStory, saveStoryDraft, scheduleStory } from '@/api/stories'
 import { useAuth } from '@/contexts/AuthContext'
@@ -72,12 +73,20 @@ export function PublishProvider({ children }) {
     [isStory, selectedPlatforms]
   )
 
+  // Story não tem legenda — o campo nem aparece, então o limite não pode barrar o envio
+  // (uma legenda sobrando no estado de um FEED anterior travaria a publicação do Story).
+  const { limit: captionLimit, isOverLimit: captionOverLimit } = useCharacterLimit(
+    selectedPlatforms,
+    formatBehavior.showCaptionField ? caption.length : 0
+  )
+
   const canPublish = mediaItems.length > 0
     && selectedClientId !== null
     && selectedPlatforms.size > 0
     && hasAccountForEverySelectedPlatform
     && carouselVideoConflicts.length === 0
     && storyPlatformConflicts.length === 0
+    && !captionOverLimit
     && !isPublishing
     && !isSavingDraft
     && !isScheduling
@@ -390,6 +399,8 @@ export function PublishProvider({ children }) {
     canPublish,
     carouselVideoConflicts,
     storyPlatformConflicts,
+    captionLimit,
+    captionOverLimit,
     accountLabels,
     activeDrawerPlatformMeta,
     activeDrawerAccounts,

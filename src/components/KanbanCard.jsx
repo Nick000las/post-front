@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { useDraggable } from '@dnd-kit/core'
-import { CalendarDays, ImageOff, Repeat } from 'lucide-react'
+import { CalendarDays, ImageOff } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import MediaCarousel from '@/components/MediaCarousel'
@@ -8,6 +8,11 @@ import { PLATFORMS } from '@/lib/platforms'
 import { formatSuggestedDate } from '@/lib/suggestedDate'
 import { getMediaUrl } from '@/lib/media'
 import { POST_FORMAT } from '@/lib/postFormat'
+
+// O card do Kanban é a superfície mais densa do app (4 colunas lado a lado): as badges usam
+// um tamanho menor que o padrão do Badge pra caber status + formato + série + contas sem
+// esticar o card.
+const COMPACT_BADGE = 'text-[11px] px-1.5 py-0'
 
 // Conteúdo visual do card, isolado pra ser reaproveitado pelo DragOverlay sem
 // arrastar junto a lógica de drag (o overlay é um clone estático).
@@ -24,17 +29,17 @@ export const KanbanCardContent = memo(function KanbanCardContent({ post, seriesC
 
   return (
     <Card>
-      <CardContent className="p-2 flex flex-col gap-2">
+      <CardContent className="p-2 flex flex-col gap-1.5">
         {isStory ? (
           storyMedia ? (
             <img
               src={getMediaUrl(storyMedia, { thumb: true })}
               alt={storyMedia.file_name}
               draggable={false}
-              className="w-full rounded-md max-h-28 object-cover pointer-events-none"
+              className="w-full rounded-md max-h-24 object-cover pointer-events-none"
             />
           ) : (
-            <div className="flex h-28 w-full flex-col items-center justify-center gap-1 rounded-md bg-muted/50 text-muted-foreground">
+            <div className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded-md bg-muted/50 text-muted-foreground">
               <ImageOff className="h-5 w-5" />
               <span className="text-xs">Sem mídia</span>
             </div>
@@ -44,43 +49,51 @@ export const KanbanCardContent = memo(function KanbanCardContent({ post, seriesC
             media={post.media ?? []}
             variant="cover"
             emptyLabel="Sem mídia"
-            className="w-full rounded-md max-h-28 object-cover"
+            className="w-full rounded-md max-h-24 object-cover"
           />
         )}
 
         {/* Story não tem legenda — some o campo em vez de mostrar "Sem legenda". */}
         {!isStory && (
-          <p className="text-sm text-foreground line-clamp-2">
+          <p className="text-xs text-foreground line-clamp-2">
             {post.caption?.trim() ? post.caption : <span className="text-muted-foreground">Sem legenda</span>}
           </p>
         )}
 
-        <div className="flex flex-wrap gap-1.5">
-          <Badge variant="outline">{post.status}</Badge>
+        <div className="flex flex-wrap gap-1">
+          <Badge variant="outline" className={COMPACT_BADGE}>{post.status}</Badge>
           {isStory && (
-            <Badge className="border-transparent bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400">
+            <Badge className={`${COMPACT_BADGE} border-transparent bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400`}>
               Story
             </Badge>
           )}
           {post.recurrence_id != null && (
-            <Badge variant="outline" className="gap-1 text-muted-foreground">
-              <Repeat className="h-3 w-3" />
-              {seriesCount > 1 ? `Série (${seriesCount} posts)` : 'Série'}
+            <Badge variant="outline" className={`${COMPACT_BADGE} text-muted-foreground`}>
+              {seriesCount > 1 ? `🔁 Série (${seriesCount} posts)` : '🔁 Série'}
             </Badge>
           )}
           {suggestedDate && (
-            <Badge variant="outline" className="gap-1 border-dashed text-muted-foreground">
+            <Badge variant="outline" className={`${COMPACT_BADGE} gap-1 border-dashed text-muted-foreground`}>
               <CalendarDays className="h-3 w-3" />
-              Sugestão: {suggestedDate}
+              {suggestedDate}
             </Badge>
           )}
           {post.accounts?.map((account) => {
             // A API do Kanban devolve `platform` em maiúsculo (ex: INSTAGRAM),
             // enquanto PLATFORMS usa ids minúsculos.
             const platformMeta = PLATFORMS.find((p) => p.id === account.platform?.toLowerCase())
+            const Icon = platformMeta?.icon
+            // Só ícone + nome da rede: o nome da conta vai pro title. Com 3-4 contas
+            // vinculadas, os nomes completos quebravam a fileira em várias linhas.
             return (
-              <Badge key={account.id} variant="secondary">
-                {account.name} · {platformMeta?.name ?? account.platform}
+              <Badge
+                key={account.id}
+                variant="secondary"
+                title={account.name}
+                className={`${COMPACT_BADGE} gap-1`}
+              >
+                {Icon && <Icon className="h-3 w-3" />}
+                {platformMeta?.name ?? account.platform}
               </Badge>
             )
           })}

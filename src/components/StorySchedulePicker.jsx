@@ -81,12 +81,21 @@ function StorySchedulePicker({
           {label}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-4" align="end" container={popoverContainer}>
-        {/* Radix expõe a altura realmente disponível (calculada por colisão com a viewport)
-            nessa CSS var — um max-h fixo (ex.: 70vh) não sabe se o gatilho está perto do rodapé,
-            e o conteúdo (2 calendários + dias da semana quando "repetir" está marcado) passa
-            fácil da tela nesse caso. Isso é o que fazia o popover "sair" da viewport. */}
-        <div className="flex max-h-[var(--radix-popover-content-available-height)] flex-col gap-3 overflow-y-auto">
+      {/* Largura fixa em vez de `w-auto`: com largura automática a caixa encolhe pro conteúdo,
+          e a mensagem de erro (uma linha longa) esticava o popover bem além dos ~248px do
+          calendário — a caixa mudava de largura sozinha ao aparecer/sumir o aviso. 280px = o
+          calendário (7 células de 2rem + p-3) mais o p-4 do popover; o min() evita estourar
+          telas estreitas. */}
+      <PopoverContent
+        className="w-[min(280px,calc(100vw-2rem))] p-4"
+        align="end"
+        container={popoverContainer}
+      >
+        {/* Radix expõe nessa CSS var a altura realmente disponível até a borda da viewport —
+            um max-h fixo (ex.: 70vh) não sabe a que distância do rodapé o gatilho está, e o
+            conteúdo (2 calendários + dias da semana quando "repetir" está marcado) passa fácil
+            da tela. O fallback 75vh só cobre navegadores/casos em que a var não é publicada. */}
+        <div className="flex max-h-[var(--radix-popover-content-available-height,75vh)] flex-col gap-3 overflow-y-auto">
           <Calendar
             mode="single"
             selected={startDate}
@@ -128,7 +137,9 @@ function StorySchedulePicker({
                       variant={weekdays.has(day.value) ? 'default' : 'outline'}
                       onClick={() => toggleWeekday(day.value)}
                       disabled={isScheduling}
-                      className="w-9 px-0"
+                      // flex-1 em vez de largura fixa: 7 botões de w-9 mais os gaps davam 276px,
+                      // estourando os ~248px do calendário e alargando o popover junto.
+                      className="min-w-0 flex-1 px-0"
                     >
                       {day.label}
                     </Button>

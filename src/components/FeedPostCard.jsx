@@ -7,6 +7,7 @@ import MediaCarousel from '@/components/MediaCarousel'
 import { canRepublish, statusBadgeVariant } from '@/lib/feedStatus'
 import { PLATFORMS } from '@/lib/platforms'
 import { POST_FORMAT } from '@/lib/postFormat'
+import { formatExactDateTime } from '@/lib/dateTime'
 
 function FeedPostCard({ post, showAuthor = true, onRepublish, isRepublishing = false }) {
   const isStory = post.format === POST_FORMAT.STORY
@@ -30,12 +31,20 @@ function FeedPostCard({ post, showAuthor = true, onRepublish, isRepublishing = f
           ) : (
             <span />
           )}
-          <Badge variant={statusBadgeVariant(post.status)}>{post.status}</Badge>
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            {/* Feed e Story convivem no mesmo grid temporal — a distinção é só visual, por badge. */}
+            {isStory && (
+              <Badge className="border-transparent bg-fuchsia-500/15 text-fuchsia-700 dark:text-fuchsia-400">
+                Story
+              </Badge>
+            )}
+            <Badge variant={statusBadgeVariant(post.status)}>{post.status}</Badge>
+          </div>
         </div>
 
         {/* Story não tem legenda — some o campo em vez de mostrar "Sem legenda". */}
         {!isStory && (
-          <p className="text-sm text-foreground whitespace-pre-wrap">
+          <p className="text-sm text-foreground whitespace-pre-wrap line-clamp-2">
             {post.caption?.trim() ? post.caption : <span className="text-muted-foreground">Sem legenda</span>}
           </p>
         )}
@@ -60,12 +69,12 @@ function FeedPostCard({ post, showAuthor = true, onRepublish, isRepublishing = f
         <div className="flex items-center justify-between gap-2">
           {showAuthor ? (
             <p className="text-xs text-muted-foreground">
-              Criado em {new Date(post.created_at).toLocaleDateString('pt-BR')} · Atualizado em{' '}
-              {new Date(post.updated_at).toLocaleDateString('pt-BR')}
+              Criado em {formatExactDateTime(post.created_at)} · Atualizado em{' '}
+              {formatExactDateTime(post.updated_at)}
             </p>
           ) : (
             <p className="text-xs text-muted-foreground">
-              Publicado em {new Date(post.published_at ?? post.updated_at).toLocaleDateString('pt-BR')}
+              Publicado em {formatExactDateTime(post.published_at ?? post.updated_at)}
             </p>
           )}
 

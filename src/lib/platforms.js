@@ -7,6 +7,16 @@ export const PLATFORMS = [
   { id: 'tiktok',    name: 'TikTok',    icon: FaTiktok,    disabled: false, comingSoon: false },
 ]
 
+// Limite de caracteres da legenda por rede, conforme documentação pública de cada API.
+// Suposição não confirmada com o backend: se algum limite real divergir, é só corrigir aqui —
+// useCharacterLimit sempre aplica o MENOR limite entre as redes selecionadas.
+export const PLATFORM_CAPTION_LIMITS = {
+  instagram: 2200,
+  facebook: 63206,
+  linkedin: 3000,
+  tiktok: 2200,
+}
+
 // Metadados do campo "platformAccountId" por plataforma — usados no formulário
 // de conta (label/placeholder) e na validação. O valor de `plataforma` enviado
 // ao backend precisa ser exatamente uma dessas chaves (minúsculo, sem variação)

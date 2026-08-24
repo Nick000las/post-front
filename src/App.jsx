@@ -41,6 +41,8 @@ function App() {
     canPublish,
     carouselVideoConflicts,
     storyPlatformConflicts,
+    captionLimit,
+    captionOverLimit,
     accountLabels,
     activeDrawerPlatformMeta,
     activeDrawerAccounts,
@@ -98,7 +100,9 @@ function App() {
               maxFiles={formatBehavior.maxFiles}
             />
             {/* Story não tem legenda — o campo some, não vira "nota interna". */}
-            {formatBehavior.showCaptionField && <CaptionField value={caption} onChange={setCaption} />}
+            {formatBehavior.showCaptionField && (
+              <CaptionField value={caption} onChange={setCaption} selectedPlatforms={selectedPlatforms} />
+            )}
           </div>
 
           <div className="flex flex-col gap-4">
@@ -123,6 +127,11 @@ function App() {
             {storyPlatformConflicts.length > 0 && (
               <WarningBanner icon={AlertTriangle}>
                 {formatStoryPlatformConflictMessage(storyPlatformConflicts)}
+              </WarningBanner>
+            )}
+            {captionOverLimit && (
+              <WarningBanner icon={AlertTriangle}>
+                A legenda passa do limite de {captionLimit} caracteres da rede mais restrita selecionada.
               </WarningBanner>
             )}
             <div className="flex flex-wrap gap-2">

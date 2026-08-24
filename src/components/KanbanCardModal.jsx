@@ -115,9 +115,9 @@ function KanbanCardModal({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent ref={setDialogContentEl} className="max-w-3xl">
-          {/* max-h/overflow ficam aqui, não no DialogContent: ele é o ancestral
-          transformado que serve de containing block pro Popover portado (ver
-          ScheduleButton), e overflow-y-auto nele recortaria o Popover junto. */}
+          {/* max-h/overflow ficam aqui, não no DialogContent: os Popovers de agendamento
+          são portados pra dentro dele (ver popover.jsx), então overflow-y-auto lá
+          recortaria o Popover junto. */}
           <div className="flex max-h-[calc(90vh-3rem)] flex-col gap-4 overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Detalhes do post</DialogTitle>

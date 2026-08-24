@@ -12,3 +12,18 @@ export function toTimeInputValue(date) {
   if (!date) return '12:00'
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
+
+// Data + horário exato, pra exibição. Diferente de formatSuggestedDate (suggestedDate.js), que
+// mostra só DD/MM porque a sugestão da IA não tem hora nenhuma.
+export function formatExactDateTime(value) {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return date.toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
